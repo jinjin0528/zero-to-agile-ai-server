@@ -1,6 +1,14 @@
 # zero-to-agile-ai-server
-It's for Zero to Agile AI Server
 
+Zero to Agile AI Server 프로젝트입니다.  
+FastAPI 기반으로 **Hexagonal Architecture**를 적용하여  
+도메인 단위 협업과 확장성을 고려한 구조를 사용합니다.
+
+---
+
+## 📁 Project Structure
+
+```text
 ├── README.md                     # 프로젝트 개요, 아키텍처 규칙, 실행 방법
 │
 ├── app                           # FastAPI 애플리케이션 엔트리 포인트
@@ -11,10 +19,10 @@ It's for Zero to Agile AI Server
 │   ├── __init__.py               # infrastructure 패키지 선언
 │   │
 │   ├── config                    # 인프라 관련 설정 모음
-│   │   └── __init__.py           # DB/MQ/LLM 등 설정용 모듈
+│   │   └── __init__.py           # DB / MQ / LLM 등 설정 관리
 │   │
 │   ├── db                        # DB 연결 및 세션 관리
-│   │   └── __init__.py           # DB engine, session factory 위치
+│   │   └── __init__.py           # DB engine, session factory
 │   │
 │   └── orm                       # ORM 모델 정의
 │       └── __init__.py           # SQLAlchemy Base, 테이블 매핑 클래스
@@ -46,16 +54,16 @@ It's for Zero to Agile AI Server
 │       │   └── output            # Outbound Adapter (내부 → 외부)
 │       │       ├── __init__.py
 │       │       │
-│       │       └── repository     # DB/MQ/외부 시스템 접근 구현체
+│       │       └── repository     # DB / MQ / 외부 시스템 접근 구현체
 │       │           └── __init__.py
 │       │
-│       ├── application           # 유스케이스 계층 (Application Layer)
+│       ├── application           # Application Layer (유스케이스 계층)
 │       │   ├── __init__.py
 │       │   │
 │       │   ├── dto                # 유스케이스용 DTO
 │       │   │   └── __init__.py
 │       │   │
-│       │   ├── port               # Application Port (외부 의존 인터페이스)
+│       │   ├── port               # Application Port (의존성 인터페이스)
 │       │   │   └── __init__.py
 │       │   │
 │       │   └── usecase            # 실제 비즈니스 흐름 구현
@@ -67,5 +75,5 @@ It's for Zero to Agile AI Server
 │
 └── test                          # 테스트 코드
     ├── __init__.py               # test 패키지 선언
-    └── dev_lsy                   # 개인/실험용 테스트 영역
+    └── dev_lsy                   # 개인 / 실험용 테스트 영역
         └── __init__.py
