@@ -2,6 +2,9 @@ from fastapi import FastAPI, APIRouter
 import os
 from dotenv import load_dotenv
 
+# ✨ 이 줄 추가
+from modules.auth.adapter.input.web.auth_router import router as auth_router
+
 load_dotenv()
 
 app = FastAPI()
@@ -15,6 +18,9 @@ api_router = APIRouter(prefix="/api")
 
 # 등록한 /api 라우터를 메인 앱에 연결합니다.
 app.include_router(api_router)
+
+# ✨ 이 줄 추가 - /api 없이 직접 등록
+app.include_router(auth_router)
 
 if __name__ == "__main__":
     import uvicorn
