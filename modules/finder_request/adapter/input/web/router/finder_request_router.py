@@ -10,7 +10,7 @@ router = APIRouter(prefix="/requests", tags=["Finder Request"])
 
 
 @router.post(
-    "",
+    "/create",
     response_model=FinderRequestResponse,
     status_code=status.HTTP_201_CREATED,
     summary="임차인 요구서 생성",
