@@ -21,4 +21,5 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 def get_db_session():
-    return SessionLocal()
+    """SessionLocal factory를 반환 (Repository에서 호출 가능)"""
+    return SessionLocal
