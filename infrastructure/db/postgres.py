@@ -16,7 +16,12 @@ engine = create_engine(
     pool_pre_ping=True
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+    expire_on_commit=True  # 커밋 후 자동으로 객체 만료 (항상 최신 데이터 조회)
+)
 
 Base = declarative_base()
 

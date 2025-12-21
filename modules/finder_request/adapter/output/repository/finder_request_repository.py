@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
 from modules.finder_request.application.port.finder_request_repository_port import FinderRequestRepositoryPort
 from modules.finder_request.domain.finder_request import FinderRequest
 from modules.finder_request.adapter.output.finder_request_model import FinderRequestModel
@@ -85,3 +85,126 @@ class FinderRequestRepository(FinderRequestRepositoryPort):
             created_at=model.created_at,
             updated_at=model.updated_at
         )
+    
+    def find_by_user_id(self, abang_user_id: int) -> List[FinderRequest]:
+        """
+        사용자 ID로 요구서 목록 조회 (모든 status 포함)
+        
+        Args:
+            abang_user_id: 임차인 사용자 ID
+            
+        Returns:
+            요구서 도메인 모델 리스트
+        """
+        db: Session = self.db_session_factory()
+        try:
+            models = db.query(FinderRequestModel).filter(
+                FinderRequestModel.abang_user_id == abang_user_id
+            ).order_by(FinderRequestModel.created_at.desc()).all()
+            
+            return [self._to_domain(model) for model in models]
+        finally:
+            db.close()
+    
+    def update(self, finder_request: FinderRequest) -> Optional[FinderRequest]:
+        """
+        요구서 수정
+        
+        Args:
+            finder_request: 수정할 요구서 도메인 모델 (ID 포함)
+            
+        Returns:
+            수정된 요구서 또는 None (존재하지 않는 경우)
+        """
+        db: Session = self.db_session_factory()
+        try:
+            model = db.query(FinderRequestModel).filter(
+                FinderRequestModel.finder_request_id == finder_request.finder_request_id
+            ).first()
+            
+            if not model:
+                return None
+            
+            # 업데이트 가능한 필드만 변경
+            if finder_request.preferred_region is not None:
+                model.preferred_region = finder_request.preferred_region
+            if finder_request.price_type is not None:
+                model.price_type = finder_request.price_type
+            if finder_request.max_deposit is not None:
+                model.max_deposit = finder_request.max_deposit
+            if finder_request.max_rent is not None:
+                model.max_rent = finder_request.max_rent
+            if finder_request.house_type is not None:
+                model.house_type = finder_request.house_type
+            if finder_request.additional_condition is not None:
+                model.additional_condition = finder_request.additional_condition
+            if finder_request.status is not None:
+                model.status = finder_request.status
+            
+            db.commit()
+            db.refresh(model)
+            
+            return self._to_domain(model)
+        finally:
+            db.close()
+    
+    def delete(self, finder_request_id: int) -> bool:
+        """
+        요구서 삭제 (hard delete - 실제 row 삭제)
+        
+        Args:
+            finder_request_id: 요구서 ID
+            
+        Returns:
+            삭제 성공 여부
+        """
+        db: Session = self.db_session_factory()
+        try:
+            print(f"🔍 [HARD DELETE] finder_request_id={finder_request_id} 조회 시도")
+            
+            model = db.query(FinderRequestModel).filter(
+                FinderRequestModel.finder_request_id == finder_request_id
+            ).first()
+            
+            if not model:
+                print(f"❌ [HARD DELETE] finder_request_id={finder_request_id} 찾을 수 없음")
+                return False
+            
+            print(f"✅ [HARD DELETE] 조회 성공: finder_request_id={model.finder_request_id}")
+            print(f"   abang_user_id: {model.abang_user_id}")
+            print(f"   status: {model.status}")
+            
+            # ✅ HARD DELETE 수행 - 실제 row 삭제
+            db.delete(model)
+            print(f"🗑️  [HARD DELETE] db.delete() 호출 완료")
+            
+            # ✅ 명시적 flush
+            db.flush()
+            print(f"✅ [HARD DELETE] flush 완료")
+            
+            # ✅ 커밋
+            db.commit()
+            print(f"✅ [HARD DELETE] commit 완료")
+            
+            # ✅ 삭제 검증 - 다시 조회했을 때 없어야 함
+            verify = db.query(FinderRequestModel).filter(
+                FinderRequestModel.finder_request_id == finder_request_id
+            ).first()
+            
+            if verify is not None:
+                print(f"❌ [HARD DELETE] 검증 실패: row가 여전히 존재함")
+                db.rollback()
+                return False
+            
+            print(f"✅ [HARD DELETE] 삭제 성공: finder_request_id={finder_request_id} row가 완전히 제거됨")
+            return True
+            
+        except Exception as e:
+            # ✅ 예외 발생 시 롤백 및 실패 반환
+            print(f"❌ [HARD DELETE] 예외 발생: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            db.rollback()
+            return False
+        finally:
+            db.close()

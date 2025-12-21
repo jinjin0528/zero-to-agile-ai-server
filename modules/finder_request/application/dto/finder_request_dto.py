@@ -13,6 +13,7 @@ class CreateFinderRequestDTO:
     max_rent: Optional[int] = None
     house_type: Optional[str] = None
     additional_condition: Optional[str] = None
+    status: str = 'Y'
 
 
 @dataclass
