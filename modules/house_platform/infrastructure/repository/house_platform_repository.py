@@ -15,6 +15,9 @@ from modules.house_platform.application.dto.house_platform_dto import (
     HousePlatformOptionUpsertModel,
     HousePlatformUpsertModel,
 )
+from modules.house_platform.application.dto.delete_house_platform_dto import (
+    DeleteHousePlatformResult,
+)
 from modules.house_platform.application.port_out.house_platform_repository_port import (
     HousePlatformRepositoryPort,
 )
@@ -67,6 +70,8 @@ class HousePlatformRepository(HousePlatformRepositoryPort):
                 else:
                     payload = self._drop_none(payload)
                     payload.pop("house_platform_id", None)
+                    if payload.get("is_banned") is None:
+                        payload["is_banned"] = False
                     obj = HousePlatformORM(**payload)
                     session.add(obj)
                     session.flush()
@@ -77,7 +82,7 @@ class HousePlatformRepository(HousePlatformRepositoryPort):
                         session, house_platform_id, bundle.management
                     )
                 if bundle.options is not None:
-                    self._replace_options(
+                    self._upsert_options(
                         session, house_platform_id, bundle.options
                     )
                 stored += 1
@@ -89,16 +94,47 @@ class HousePlatformRepository(HousePlatformRepositoryPort):
         finally:
             session.close()
 
+    def soft_delete_by_id(self, house_platform_id: int) -> DeleteHousePlatformResult:
+        """is_banned 플래그를 True로 설정한다."""
+        session: Session = self._session_factory()
+        try:
+            target = (
+                session.query(HousePlatformORM)
+                .filter(HousePlatformORM.house_platform_id == house_platform_id)
+                .one_or_none()
+            )
+            if not target:
+                return DeleteHousePlatformResult(
+                    house_platform_id=house_platform_id,
+                    deleted=False,
+                    message="대상 매물이 없습니다.",
+                )
+            if target.is_banned:
+                return DeleteHousePlatformResult(
+                    house_platform_id=house_platform_id,
+                    deleted=False,
+                    already_deleted=True,
+                    message="이미 삭제 처리된 매물입니다.",
+                )
+            target.is_banned = True
+            session.commit()
+            return DeleteHousePlatformResult(
+                house_platform_id=house_platform_id,
+                deleted=True,
+            )
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+
     def _to_house_platform_payload(self, model: HousePlatformUpsertModel) -> dict:
         """DTO를 ORM 저장용 dict로 변환한다."""
         data = asdict(model)
         if data.get("domain_id") is not None:
             data["domain_id"] = int(data["domain_id"])
-        if data.get("pnu_cd") is not None and not isinstance(data.get("pnu_cd"), int):
-            try:
-                data["pnu_cd"] = int(data["pnu_cd"])
-            except (TypeError, ValueError):
-                data["pnu_cd"] = None
+        if data.get("pnu_cd") is not None and not isinstance(data.get("pnu_cd"), str):
+            data["pnu_cd"] = str(data["pnu_cd"])
         if data.get("image_urls") is not None and not isinstance(
             data.get("image_urls"), str
         ):
@@ -115,7 +151,7 @@ class HousePlatformRepository(HousePlatformRepositoryPort):
     def _apply_house_platform_updates(target: HousePlatformORM, payload: dict) -> None:
         """기존 레코드의 변경 가능한 필드만 반영한다."""
         for key, value in payload.items():
-            if key in {"house_platform_id", "created_at"}:
+            if key in {"house_platform_id", "created_at", "is_banned"}:
                 continue
             if value is None:
                 continue
@@ -150,24 +186,47 @@ class HousePlatformRepository(HousePlatformRepositoryPort):
             session.add(HousePlatformManagementORM(**payload))
 
     @staticmethod
-    def _replace_options(
+    def _upsert_options(
         session: Session,
         house_platform_id: int,
-        options: Sequence[HousePlatformOptionUpsertModel],
+        options: HousePlatformOptionUpsertModel,
     ) -> None:
-        """옵션 목록을 전체 교체 방식으로 갱신한다."""
-        session.query(HousePlatformOptionORM).filter(
-            HousePlatformOptionORM.house_platform_id == house_platform_id
-        ).delete(synchronize_session=False)
-        rows = []
-        for opt in options:
-            if not opt.option:
-                continue
-            rows.append(
+        """옵션/주변 정보를 한 행으로 업서트한다."""
+        has_payload = any(
+            value is not None
+            for value in (
+                options.built_in,
+                options.near_univ,
+                options.near_transport,
+                options.near_mart,
+            )
+        )
+        if not has_payload:
+            return
+
+        payload = {
+            "built_in": json.dumps(options.built_in, ensure_ascii=False)
+            if options.built_in is not None
+            else None,
+            "near_univ": options.near_univ,
+            "near_transport": options.near_transport,
+            "near_mart": options.near_mart,
+        }
+
+        existing = (
+            session.query(HousePlatformOptionORM)
+            .filter(HousePlatformOptionORM.house_platform_id == house_platform_id)
+            .one_or_none()
+        )
+        if existing:
+            for key, value in payload.items():
+                if value is None:
+                    continue
+                setattr(existing, key, value)
+        else:
+            session.add(
                 HousePlatformOptionORM(
                     house_platform_id=house_platform_id,
-                    option=str(opt.option),
+                    **{k: v for k, v in payload.items() if v is not None},
                 )
             )
-        if rows:
-            session.add_all(rows)
