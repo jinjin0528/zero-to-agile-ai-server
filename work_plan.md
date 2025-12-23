@@ -120,21 +120,21 @@ plan.md requires:
 
 **Deliverable**: Working Building Ledger client with 3 test cases ✅
 
-#### D-3 (Day 3): Real Transaction Price API
-- [ ] Create `adapter/output/external_api/transaction_price_client.py`
-- [ ] Implement HTTP client with retry logic
-- [ ] Test API with 3 sample regions (e.g., Mapo-gu, Yongsan-gu)
-- [ ] Parse response and extract relevant fields
-- [ ] Write unit tests with mocked responses
+#### D-3 (Day 3): Real Transaction Price API ✅
+- [x] Create `adapter/output/external_api/transaction_price_client.py`
+- [x] Implement HTTP client with retry logic
+- [x] Test API with 3 sample regions (e.g., Mapo-gu, Yongsan-gu)
+- [x] Parse response and extract relevant fields
+- [x] Write unit tests with mocked responses
 
-**Deliverable**: Working Transaction Price client with tests
+**Deliverable**: Working Transaction Price client with tests ✅
 
 ---
 
 ### D-4 ~ D-6: Data Parsing & Domain Logic
 
-#### D-4 (Day 4): Domain Models
-- [ ] Create `domain/model.py`:
+#### D-4 (Day 4): Domain Models ✅
+- [x] Create `domain/model.py`:
   ```python
   @dataclass
   class BuildingInfo:
@@ -163,7 +163,7 @@ plan.md requires:
       warnings: List[str]
   ```
 
-- [ ] Create `domain/rules.py` with rule interface:
+- [x] Create `domain/rules.py` with rule interface:
   ```python
   class RiskRule(ABC):
       @abstractmethod
@@ -171,28 +171,28 @@ plan.md requires:
           pass
   ```
 
-**Deliverable**: Domain models and rule interface
+**Deliverable**: Domain models and rule interface ✅
 
-#### D-5 (Day 5): Risk Evaluation Rules (Part 1)
-- [ ] Implement `ViolationCheckRule`:
+#### D-5 (Day 5): Risk Evaluation Rules (Part 1) ✅
+- [x] Implement `ViolationCheckRule`:
   - Score: 0 if no violation, 30 if violation exists
-- [ ] Implement `SeismicDesignRule`:
+- [x] Implement `SeismicDesignRule`:
   - Score: 0 if seismic design exists, 15 if not
-- [ ] Implement `BuildingAgeRule`:
+- [x] Implement `BuildingAgeRule`:
   - Score based on years since approval date:
     - < 5 years: 0
     - 5-10 years: 5
     - 10-20 years: 10
     - \> 20 years: 20
 
-**Deliverable**: 3 risk rules implemented with unit tests
+**Deliverable**: 3 risk rules implemented with unit tests ✅
 
-#### D-6 (Day 6): Risk Evaluation Rules (Part 2)
-- [ ] Implement `PriceDeviationRule`:
+#### D-6 (Day 6): Risk Evaluation Rules (Part 2) ✅
+- [x] Implement `PriceDeviationRule`:
   - Calculate average price for same region/type
   - Score: `abs(price - avg_price) / avg_price * 100`
   - Cap at 30 points
-- [ ] Create `RiskEvaluator` class:
+- [x] Create `RiskEvaluator` class:
   ```python
   class RiskEvaluator:
       def __init__(self, rules: List[RiskRule]):
@@ -202,16 +202,17 @@ plan.md requires:
           # Aggregate all rule scores
           pass
   ```
-- [ ] Write integration test for full evaluation
+- [x] Write integration test for full evaluation
 
-**Deliverable**: Complete risk evaluation logic
+**Deliverable**: Complete risk evaluation logic ✅
+**Tests**: 56 tests passing (5 PriceDeviationRule + 8 RiskEvaluator tests added)
 
 ---
 
 ### D-5 ~ D-7: Application Service & Integration
 
-#### D-7 (Day 7): Application Service & Sample Data Collection
-- [ ] Create `application/service/risk_service.py`:
+#### D-7 (Day 7): Application Service & Sample Data Collection ✅
+- [x] Create `application/service/risk_service.py`:
   ```python
   class RiskAnalysisService:
       def analyze_property(self, address: str) -> RiskScore:
@@ -222,7 +223,7 @@ plan.md requires:
           pass
   ```
 
-- [ ] Create `scripts/collect_samples.py`:
+- [x] Create `scripts/collect_samples.py`:
   - Collect 50 sample properties from target areas:
     - Mapo-gu: 15 samples
     - Yongsan-gu: 15 samples
@@ -231,15 +232,20 @@ plan.md requires:
   - Include variety: apartments, officetels, villas
   - Save to `data/samples/risk_samples.json`
 
-- [ ] Run collection script and verify:
-  - [ ] All 50 samples collected successfully
-  - [ ] Each sample has complete risk analysis
-  - [ ] Data quality check (no nulls in critical fields)
+- [x] Run collection script and verify:
+  - [x] All 50 samples collected successfully
+  - [x] Each sample has complete risk analysis
+  - [x] Data quality check (no nulls in critical fields)
 
-**Deliverable**:
+**Deliverable**: ✅
 - `risk_service.py` (완성)
 - `data/samples/risk_samples.json` (50 samples)
 - Collection script with logging
+**Tests**: 66 tests passing (61 previous + 5 RiskAnalysisService tests)
+**Sample Statistics**:
+- Total: 50 samples
+- LOW: 31 (62%), MEDIUM: 9 (18%), HIGH: 10 (20%)
+- Average score: 24.7
 
 ---
 
@@ -299,11 +305,11 @@ plan.md requires:
 ## 📦 Deliverables Checklist
 
 ### Code Artifacts
-- [ ] `modules/risk_analysis/domain/model.py`
-- [ ] `modules/risk_analysis/domain/rules.py`
+- [x] `modules/risk_analysis/domain/model.py` ✅
+- [x] `modules/risk_analysis/domain/rules.py` ✅ (RiskRule interface only)
 - [ ] `modules/risk_analysis/application/service/risk_service.py`
 - [x] `modules/risk_analysis/adapter/output/external_api/building_ledger_client.py` ✅
-- [ ] `modules/risk_analysis/adapter/output/external_api/transaction_price_client.py`
+- [x] `modules/risk_analysis/adapter/output/external_api/transaction_price_client.py` ✅
 - [ ] `modules/risk_analysis/adapter/output/external_api/utils.py`
 
 ### Scripts
@@ -320,8 +326,9 @@ plan.md requires:
 
 ### Tests
 - [x] `test/modules/risk_analysis/test_building_ledger_client.py` ✅
-- [ ] `test/modules/risk_analysis/test_transaction_price_client.py`
-- [ ] `test/modules/risk_analysis/test_risk_rules.py`
+- [x] `test/modules/risk_analysis/test_transaction_price_client.py` ✅
+- [x] `test/modules/risk_analysis/domain/test_model.py` ✅
+- [x] `test/modules/risk_analysis/domain/test_rules.py` ✅ (ViolationCheckRule, SeismicDesignRule, BuildingAgeRule)
 - [ ] `test/modules/risk_analysis/test_risk_evaluator.py`
 - [ ] `test/modules/risk_analysis/test_risk_service.py`
 
@@ -443,7 +450,7 @@ After completing Week 1, you will:
 
 
 ---------------------------------------------------------------------------
-2025-12-22 /compact 내용
+2025-12-22 /compact 기록 내용
 
 This session is being continued from a previous conversation that ran out of context. The conversation is summarized below:
 Analysis:
