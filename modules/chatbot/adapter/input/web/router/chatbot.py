@@ -1,19 +1,23 @@
-from typing import List, Optional, Union
-from pydantic import BaseModel, Field
+from fastapi import APIRouter
 
-from modules.chatbot.domain.tone import ChatTone
+from modules.chatbot.adapter.input.web.request.recommendation_chatbot import (
+    RecommendationChatbotRequest,
+)
+from modules.chatbot.adapter.input.web.response.recommendation_chatbot import (
+    RecommendationChatbotResponse,
+)
+from modules.chatbot.application.usecase.explain_house_recommendation_usecase import (
+    ExplainHouseRecommendationUseCase,
+)
 
+router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 
-class RecommendationItem(BaseModel):
-    item_id: Union[int, str] = Field(..., description="매물 식별자")
-    title: str = Field(..., description="매물 제목")
-    reasons: List[str] = Field(default_factory=list, description="추천 이유 목록")
-
-
-class RecommendationChatbotRequest(BaseModel):
-    tone: ChatTone = Field(..., description="답변 말투")
-    message: str = Field(..., description="사용자 질문 또는 요청")
-    recommendations: Optional[List[RecommendationItem]] = Field(
-        default=None,
-        description="추천된 매물 요약",
-    )
+@router.post(
+    "/recommendation",
+    response_model=RecommendationChatbotResponse,
+)
+def explain_recommendation(
+    request: RecommendationChatbotRequest,
+) -> RecommendationChatbotResponse:
+    usecase = ExplainHouseRecommendationUseCase()
+    return usecase.execute(request)
