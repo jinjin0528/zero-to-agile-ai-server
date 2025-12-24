@@ -35,31 +35,41 @@ class ZigbangAdapter:
         region_filters: Sequence[str] | None = None,
     ) -> Tuple[list[HousePlatformUpsertBundle], list[str]]:
         """item_id 목록을 상세 조회하여 업서트 번들로 변환한다."""
-        region_filters = list(region_filters or [])
-        errors: list[str] = []
+        summary_items, errors = self.fetch_summary_items(item_ids)
+        if not summary_items:
+            return [], errors
+        filtered = self.filter_by_region(summary_items, region_filters or [])
+        return self.convert_details(filtered, errors)
+
+    def fetch_summary_items(
+        self, item_ids: Iterable[int]
+    ) -> Tuple[list[Mapping[str, Any]], list[str]]:
+        """item_id 목록을 요약 API로 조회한다."""
         normalized_ids = self._normalize_item_ids(item_ids)
         if not normalized_ids:
             return [], ["유효한 item_id가 없습니다."]
-
         try:
             summary_items = self.fetch_port.fetch_by_item_ids(normalized_ids)
         except Exception as exc:  # noqa: BLE001
             return [], [f"배치 조회 실패: {exc}"]
+        return list(summary_items), []
 
-        filtered = self._filter_by_region(summary_items, region_filters)
-        return self._convert_details(filtered, errors)
-
-    def _convert_details(
+    def convert_details(
         self,
         items: Sequence[Mapping[str, Any]],
-        errors: list[str],
+        errors: list[str] | None = None,
+        skip_ids: set[str] | None = None,
     ) -> Tuple[list[HousePlatformUpsertBundle], list[str]]:
         """상세 조회 후 매핑 결과와 에러를 모아 반환한다."""
+        errors = list(errors or [])
+        skip_ids = skip_ids or set()
         converted: list[HousePlatformUpsertBundle] = []
         for item in items:
             item_id = item.get("item_id") or item.get("itemId")
             if not item_id:
                 errors.append("item_id 없음")
+                continue
+            if str(item_id) in skip_ids:
                 continue
             try:
                 detail = self.fetch_port.fetch_detail(int(item_id))
@@ -82,21 +92,40 @@ class ZigbangAdapter:
                 continue
         return normalized
 
-    def _filter_by_region(
+    def filter_by_region(
         self, raw_items: Sequence[Mapping], region_filters: Sequence[str]
     ) -> list[Mapping]:
+        """요약 응답의 local1/local2 기준으로 지역 필터링한다."""
         if not region_filters:
             return list(raw_items)
         filtered = []
         for item in raw_items:
-            full_text = (
-                item.get("addressOrigin", {}).get("fullText")
-                or item.get("address")
-                or ""
-            )
+            address_origin = item.get("addressOrigin", {}) or {}
+            local1 = address_origin.get("local1") or ""
+            full_text = address_origin.get("fullText") or item.get("address") or ""
+            if local1:
+                if local1 not in {"서울시", "서울특별시"}:
+                    continue
+            else:
+                if "서울" not in full_text:
+                    continue
+            local2 = address_origin.get("local2") or ""
+            if local2 and any(region in local2 for region in region_filters):
+                filtered.append(item)
+                continue
             if any(region in full_text for region in region_filters):
                 filtered.append(item)
         return filtered
+
+    def collect_item_ids(self, items: Sequence[Mapping[str, Any]]) -> list[str]:
+        """요약 응답에서 item_id 목록을 추출한다."""
+        collected: list[str] = []
+        for item in items:
+            item_id = item.get("item_id") or item.get("itemId")
+            if item_id is None:
+                continue
+            collected.append(str(item_id))
+        return collected
 
     def _map_raw_item_to_bundle(
         self, raw_item: Mapping[str, Any]
@@ -402,6 +431,7 @@ class ZigbangAdapter:
             return datetime.fromisoformat(raw.replace("Z", "+00:00"))
         except ValueError:
             return None
+
     @staticmethod
     def _parse_pnu_cd(value: Any) -> str | None:
         """PNU 값을 숫자 문자열로 정규화한다."""

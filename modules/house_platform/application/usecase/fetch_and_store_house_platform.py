@@ -37,29 +37,35 @@ class FetchAndStoreHousePlatformService(FetchAndStoreHousePlatformPort):
                 fetched=0, stored=0, skipped=0, errors=["크롤링 조건이 없습니다."]
             )
 
-        bundles, errors = self._fetch_and_convert(command)
-        if not bundles:
+        summary_items, errors = self.adapter.fetch_summary_items(command.item_ids or [])
+        fetched = len(summary_items)
+        if not summary_items:
             return FetchAndStoreResult(fetched=0, stored=0, skipped=0, errors=errors)
 
-        rgst_nos = [
-            b.house_platform.rgst_no for b in bundles if b.house_platform.rgst_no
-        ]
+        filtered = self.adapter.filter_by_region(summary_items, self.region_filters)
+        if not filtered:
+            return FetchAndStoreResult(
+                fetched=fetched, stored=0, skipped=fetched, errors=errors
+            )
+
+        summary_ids = self.adapter.collect_item_ids(filtered)
         existing = (
-            self.repository_port.exists_rgst_nos(rgst_nos) if rgst_nos else set()
+            self.repository_port.exists_rgst_nos(summary_ids)
+            if summary_ids
+            else set()
         )
-        to_store = [
-            b for b in bundles if b.house_platform.rgst_no not in existing
+        filtered = [
+            item
+            for item in filtered
+            if str(item.get("item_id") or item.get("itemId")) not in existing
         ]
-        skipped = len(bundles) - len(to_store)
-        stored = self.repository_port.upsert_batch(to_store) if to_store else 0
+
+        bundles, errors = self.adapter.convert_details(
+            filtered, errors, skip_ids=existing
+        )
+        stored = self.repository_port.upsert_batch(bundles) if bundles else 0
+        skipped = fetched - len(bundles)
 
         return FetchAndStoreResult(
-            fetched=len(bundles), stored=stored, skipped=skipped, errors=errors
-        )
-
-    def _fetch_and_convert(self, command: FetchAndStoreCommand):
-        if not command.item_ids:
-            return [], ["크롤링 조건이 없습니다."]
-        return self.adapter.fetch_and_convert_by_item_ids(
-            command.item_ids, self.region_filters
+            fetched=fetched, stored=stored, skipped=skipped, errors=errors
         )
