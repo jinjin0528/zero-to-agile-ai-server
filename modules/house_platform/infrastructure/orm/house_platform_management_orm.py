@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Text, func
+from sqlalchemy import BigInteger, Column, DateTime, Text, func
 
 from infrastructure.db.postgres import Base
 
@@ -11,9 +11,7 @@ class HousePlatformManagementORM(Base):
     house_platform_management_id = Column(
         BigInteger, primary_key=True, autoincrement=True
     )
-    house_platform_id = Column(
-        BigInteger, ForeignKey("house_platform.house_platform_id"), nullable=False
-    )
+    house_platform_id = Column(BigInteger, nullable=False)
     management_included = Column(Text, nullable=True)
     management_excluded = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=True)
