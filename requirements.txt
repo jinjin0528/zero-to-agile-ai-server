@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 openai
+tiktoken
 python-dotenv
 requests
 PyJWT
@@ -8,5 +9,7 @@ redis
 SQLAlchemy
 psycopg2-binary
 pydantic
+pydantic-settings
+pytest
 pika
 pgvector
