@@ -13,6 +13,7 @@ from modules.student_house.adapter.input.web.router.student_house_router import 
 )
 from modules.abang_user.adapter.input.web.router.abang_user_router import router as abang_user_router
 from modules.university.adapter.input.web.router.university_router import router as university_router
+from modules.owner_house.adapter.input.web.router.owner_house_router import router as owner_house_router
 
 load_dotenv()
 app = FastAPI()
@@ -51,6 +52,9 @@ api_router.include_router(abang_user_router)
 
 # ✅ university_router를 api_router 아래에 등록 (/api + /universities = /api/universities)
 api_router.include_router(university_router)
+
+# ✅ owner_house_router를 api_router 아래에 등록 (/api + /owner_houses = /api/owner_houses)
+api_router.include_router(owner_house_router)
 
 # 등록한 /api 라우터를 메인 앱에 연결합니다.
 app.include_router(api_router)
