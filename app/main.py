@@ -11,6 +11,7 @@ from modules.mq.adapter.input.web.router.search_house_router import router as se
 from modules.student_house.adapter.input.web.router.student_house_router import (
     router as student_house_router,
 )
+from modules.chatbot.adapter.input.web.router.chat_router import router as chat_router
 from modules.abang_user.adapter.input.web.router.abang_user_router import router as abang_user_router
 from modules.university.adapter.input.web.router.university_router import router as university_router
 
@@ -45,6 +46,9 @@ api_router.include_router(chatbot_router)
 
 # ✅ student_house_router를 api_router 아래에 등록 (/api + /student_house = /api/student_house)
 api_router.include_router(student_house_router)
+
+# ✅ chat_router를 api_router 아래에 등록 (/api + /chatbot = /api/chatbot)
+api_router.include_router(chat_router)
 
 # ✅ abang_user_router를 api_router 아래에 등록 (/api + /users = /api/users)
 api_router.include_router(abang_user_router)
