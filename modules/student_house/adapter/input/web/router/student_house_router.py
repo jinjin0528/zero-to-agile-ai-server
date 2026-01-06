@@ -2,14 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from infrastructure.db.postgres import get_db_session
 from infrastructure.external.embedding_agent import OpenAIEmbeddingAgent
-from modules.chatbot.adapter.input.web.request.recommendation_chatbot import (
+from modules.ai_explaination.adapter.input.web.request.recommendation_chatbot import (
     RecommendationChatbotRequest,
     RecommendationItem,
 )
-from modules.chatbot.application.usecase.explain_recommendation_usecase import (
+from modules.ai_explaination.application.usecase.explain_recommendation_usecase import (
     ExplainRecommendationUseCase,
 )
-from modules.chatbot.domain.tone import ChatTone
+from modules.ai_explaination.domain.tone import ChatTone
 from modules.finder_request.adapter.output.repository.finder_request_repository import (
     FinderRequestRepository,
 )
