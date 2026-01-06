@@ -17,6 +17,9 @@ from modules.house_platform.application.dto.house_platform_dto import (
     HousePlatformOptionUpsertModel,
     HousePlatformUpsertModel,
 )
+from modules.house_platform.application.dto.house_platform_location_dto import (
+    HousePlatformLocation,
+)
 from modules.house_platform.application.dto.delete_house_platform_dto import (
     DeleteHousePlatformResult,
 )
@@ -217,6 +220,40 @@ class HousePlatformRepository(HousePlatformRepositoryPort):
                 else None,
                 options=self._to_options_model(options) if options else None,
             )
+        finally:
+            if generator:
+                generator.close()
+            else:
+                session.close()
+
+    def fetch_location_by_id(
+        self, house_platform_id: int
+    ) -> HousePlatformLocation | None:
+        """매물 경위도 정보를 단건 조회한다."""
+        session, generator = open_session(self._session_factory)
+        try:
+            row = (
+                session.query(
+                    HousePlatformORM.house_platform_id, HousePlatformORM.lat_lng
+                )
+                .filter(HousePlatformORM.house_platform_id == house_platform_id)
+                .one_or_none()
+            )
+            if not row:
+                return None
+            lat_lng = row[1] or {}
+            lat = lat_lng.get("lat")
+            lng = lat_lng.get("lng")
+            try:
+                if lat is None or lng is None:
+                    return None
+                return HousePlatformLocation(
+                    house_platform_id=int(row[0]),
+                    lat=float(lat),
+                    lng=float(lng),
+                )
+            except (TypeError, ValueError):
+                return None
         finally:
             if generator:
                 generator.close()
