@@ -22,7 +22,12 @@ def test_price_score_domain_model_creation():
     }
 
     # When: PriceScore 도메인 모델 생성
-    price_score = PriceScore(score=score, comment=comment, metrics=metrics)
+    price_score = PriceScore(
+        score=score,
+        comment=comment,
+        metrics=metrics,
+        address="서울시 강남구 역삼동 777-0"
+    )
 
     # Then: 모델이 올바르게 생성되고 값이 저장됨
     assert price_score.score == 38

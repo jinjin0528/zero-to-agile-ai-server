@@ -16,7 +16,7 @@ class FakeAddressCodecRepository(AddressCodecPort):
 
 
 class FakeTransactionPriceRepository(TransactionPricePort):
-    def fetch_transaction_prices(self, legal_code: str, deal_type: str):
+    def fetch_transaction_prices(self, legal_code: str, deal_type: str, property_type: str):
         return [
             {
                 "price": 50000000,  # 5천만원
@@ -39,6 +39,14 @@ class FakePriceHistoryRepository(PriceHistoryPort):
         self.saved_price_scores.append(price_score)
 
 
+class FakeDbSession:
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
+
+
 def test_analyze_price_usecase_with_mocked_ports():
     """
     Mock Port를 사용한 가격 분석 유스케이스 테스트
@@ -53,12 +61,14 @@ def test_analyze_price_usecase_with_mocked_ports():
     usecase = AnalyzePriceUseCase(
         address_codec_port=address_codec_port,
         transaction_price_port=transaction_price_port,
-        price_history_port=price_history_port
+        price_history_port=price_history_port,
+        db_session=FakeDbSession()
     )
 
     result = usecase.execute(
-        address="서울시 강남구 역삼동 777",
+        address="서울시 강남구 역삼동 777-0",
         deal_type="전세",
+        property_type="아파트",
         price=60000000,  # 6천만원
         area=33.0  # 33㎡
     )
@@ -84,7 +94,7 @@ def test_analyze_price_usecase_with_no_transaction_data():
     """
     # Given: 실거래가 데이터가 없는 Fake Repository
     class FakeTransactionPriceRepositoryEmpty(TransactionPricePort):
-        def fetch_transaction_prices(self, legal_code: str, deal_type: str):
+        def fetch_transaction_prices(self, legal_code: str, deal_type: str, property_type: str):
             return []  # 빈 리스트 반환
 
     address_codec_port = FakeAddressCodecRepository()
@@ -95,12 +105,14 @@ def test_analyze_price_usecase_with_no_transaction_data():
     usecase = AnalyzePriceUseCase(
         address_codec_port=address_codec_port,
         transaction_price_port=transaction_price_port,
-        price_history_port=price_history_port
+        price_history_port=price_history_port,
+        db_session=FakeDbSession()
     )
 
     result = usecase.execute(
-        address="서울시 강남구 역삼동 777",
+        address="서울시 강남구 역삼동 777-0",
         deal_type="전세",
+        property_type="아파트",
         price=60000000,  # 6천만원
         area=33.0  # 33㎡
     )
@@ -122,7 +134,7 @@ def test_analyze_price_usecase_with_different_deal_types():
     """
     # Given: 월세 데이터를 반환하는 Fake Repository
     class FakeTransactionPriceRepositoryMonthly(TransactionPricePort):
-        def fetch_transaction_prices(self, legal_code: str, deal_type: str):
+        def fetch_transaction_prices(self, legal_code: str, deal_type: str, property_type: str):
             if deal_type == "월세":
                 return [
                     {"price": 500000, "area": 33.0, "deal_type": "월세"},
@@ -138,12 +150,14 @@ def test_analyze_price_usecase_with_different_deal_types():
     usecase = AnalyzePriceUseCase(
         address_codec_port=address_codec_port,
         transaction_price_port=transaction_price_port,
-        price_history_port=price_history_port
+        price_history_port=price_history_port,
+        db_session=FakeDbSession()
     )
 
     result = usecase.execute(
-        address="서울시 강남구 역삼동 777",
+        address="서울시 강남구 역삼동 777-0",
         deal_type="월세",
+        property_type="오피스텔",
         price=600000,  # 60만원 (월세)
         area=33.0
     )

@@ -67,9 +67,10 @@ def test_risk_score_history_save_and_load(in_memory_db):
     """
     # Given: 리스크 점수 히스토리 데이터
     risk_history = RiskScoreHistory(
-        address="서울시 강남구 역삼동 777",
+        address="서울시 강남구 역삼동 777-0",
         risk_score=72,
-        summary="내진 설계 미적용, 준공 30년 이상으로 위험도 높음",
+        summary=5,
+        # comment is not persisted in ORM
         factors={"violation": True, "seismic_design": False, "building_age": 30}
     )
 
@@ -79,13 +80,13 @@ def test_risk_score_history_save_and_load(in_memory_db):
 
     # Then: 저장된 데이터를 조회하여 검증
     saved_history = in_memory_db.query(RiskScoreHistory).filter_by(
-        address="서울시 강남구 역삼동 777"
+        address="서울시 강남구 역삼동 777-0"
     ).first()
 
     assert saved_history is not None
-    assert saved_history.address == "서울시 강남구 역삼동 777"
+    assert saved_history.address == "서울시 강남구 역삼동 777-0"
     assert saved_history.risk_score == 72
-    assert saved_history.summary == "내진 설계 미적용, 준공 30년 이상으로 위험도 높음"
+    assert saved_history.summary == 5
     assert saved_history.factors["violation"] is True
     assert saved_history.factors["seismic_design"] is False
     assert saved_history.factors["building_age"] == 30
@@ -99,7 +100,7 @@ def test_price_score_history_save_and_load(in_memory_db):
     """
     # Given: 가격 점수 히스토리 데이터
     price_history = PriceScoreHistory(
-        address="서울시 강남구 역삼동 777",
+        address="서울시 강남구 역삼동 777-0",
         deal_type="전세",
         price_score=38,
         comment="동 평균 대비 약 22% 높은 가격",
@@ -112,11 +113,11 @@ def test_price_score_history_save_and_load(in_memory_db):
 
     # Then: 저장된 데이터를 조회하여 검증
     saved_history = in_memory_db.query(PriceScoreHistory).filter_by(
-        address="서울시 강남구 역삼동 777"
+        address="서울시 강남구 역삼동 777-0"
     ).first()
 
     assert saved_history is not None
-    assert saved_history.address == "서울시 강남구 역삼동 777"
+    assert saved_history.address == "서울시 강남구 역삼동 777-0"
     assert saved_history.deal_type == "전세"
     assert saved_history.price_score == 38
     assert saved_history.comment == "동 평균 대비 약 22% 높은 가격"

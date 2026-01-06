@@ -881,11 +881,13 @@ pytest test/house_analysis/domain/test_risk_service.py::test_calculate_risk_scor
   - (통합 테스트, VCR 사용 권장)
   - 국토교통부 실거래가 API 실제 연동 완료 (아파트 매매/전월세 API 지원)
 
-- [ ] **test_risk_history_repository_save**
+- [x] **test_risk_history_repository_save**
   - RiskHistoryRepository의 save() 메서드 테스트
   - 실제 DB 또는 in-memory DB 사용
+  - ✅ SQLite autoincrement 이슈 해결 (__table_args__ 사용)
+  - ✅ Repository는 commit하지 않고 session.add()만 수행
 
-- [ ] **test_price_history_repository_save**
+- [x] **test_price_history_repository_save**
   - PriceHistoryRepository의 save() 메서드 테스트
   - 실제 DB 또는 in-memory DB 사용
 
@@ -905,25 +907,96 @@ pytest test/house_analysis/domain/test_risk_service.py::test_calculate_risk_scor
 
 **테스트 목록**:
 
-- [ ] **test_risk_analysis_endpoint_success**
+- [x] **test_risk_analysis_endpoint_success**
   - GET /api/house_analysis/risk 성공 케이스
   - 올바른 주소 입력 → 200 OK, 리스크 점수 반환
 
-- [ ] **test_risk_analysis_endpoint_validation_error**
+- [x] **test_risk_analysis_endpoint_validation_error**
   - GET /api/house_analysis/risk 유효성 검증 실패
   - 빈 주소 입력 → 422 Unprocessable Entity
 
-- [ ] **test_price_analysis_endpoint_success**
+- [x] **test_price_analysis_endpoint_success**
   - GET /api/house_analysis/price 성공 케이스
   - 올바른 주소 + 거래유형 → 200 OK, 가격 점수 반환
 
-- [ ] **test_price_analysis_endpoint_missing_deal_type**
+- [x] **test_price_analysis_endpoint_missing_deal_type**
   - GET /api/house_analysis/price deal_type 누락
   - 422 Unprocessable Entity
 
-- [ ] **test_router_dependency_injection**
+- [x] **test_router_dependency_injection**
   - FastAPI의 Depends를 사용한 DB 세션 주입 확인
   - get_db_session()이 올바르게 주입되는지 검증
+
+변경 내용 요약해볼게.
+
+작업 내용
+
+house_analysis 라우터 계층(리스크/가격) 추가 및 테스트 구성
+Risk/Price 저장 로직에서 usecase가 commit/rollback 수행하도록 정리
+입력 주소 형식을 역삼동 777-0로 통일하고 번/지 파싱 적용
+건축물대장 조회는 legal_code + bun + ji로 전달되도록 수정
+Price API는 price/area를 필수로 유지
+테스트 기대치/입력 주소 값 일관성 조정
+plan.md에서 test_router_dependency_injection 체크 완료
+주요 수정 파일
+
+house_analysis_router.py
+risk_request.py
+price_request.py
+address_codec_repository.py
+building_ledger_repository.py
+analyze_risk_usecase.py
+analyze_price_usecase.py
+test_house_analysis_router.py
+test_analyze_risk_usecase.py
+test_analyze_price_usecase.py
+test_risk_service.py
+test_price_service.py
+test_orm.py
+test_repositories.py
+test_ports.py
+plan.md
+
+리스크 스코어 설계 변경 요약
+
+변경된 점수 체계 (0~100)
+
+위반 건축물: +45
+내진 설계 미적용/정보없음: +10
+노후도(5구간): ≤5년 0, 59년 +4, 1019년 +8, 20~29년 +14, 30년 이상 +20
+주용도코드명 추가: 안전 0, 주의 8, 위험 18, 매우 위험 25
+코드 변경
+
+리스크 계산 로직 업데이트: service.py
+건축물대장 파싱에 main_use 추가: building_ledger_repository.py
+테스트 변경
+
+리스크 관련 테스트 기대값/입력 업데이트:
+test_risk_service.py
+test_analyze_risk_usecase.py
+test_house_analysis_router.py
+test_repositories.py
+포트 설명 갱신: test_ports.py
+
+등급(1~5) 적용 변경 요약
+
+기능 변경
+
+generate_risk_summary를 문자열 요약 → 숫자 등급(1~5) 반환으로 변경
+019: 1, 2039: 2, 4059: 3, 6079: 4, 80~100: 5
+RiskScore.summary 타입을 int로 변경
+DB ORM의 risk_score_history.summary 컬럼 타입을 Integer로 변경
+API 응답의 summary도 숫자 등급으로 반환
+수정된 파일
+
+service.py
+model.py
+risk_score_history_orm.py
+test_risk_service.py
+test_analyze_risk_usecase.py
+test_repositories.py
+test_orm.py
+test_house_analysis_router.py
 
 **파일**:
 - `modules/house_analysis/adapter/input/web/router/house_analysis_router.py`
@@ -941,21 +1014,53 @@ pytest test/house_analysis/domain/test_risk_service.py::test_calculate_risk_scor
 
 **테스트 목록**:
 
-- [ ] **test_main_app_includes_house_analysis_router**
+- [x] **test_main_app_includes_house_analysis_router**
   - main.py에 house_analysis_router가 등록되었는지 확인
   - app.router.routes에서 확인
 
-- [ ] **test_e2e_risk_analysis_flow**
+- [x] **test_e2e_risk_analysis_flow**
   - 실제 API 호출 → DB 저장까지 전체 흐름 테스트
   - TestClient 사용, Mock 없이 실제 흐름 검증
 
-- [ ] **test_e2e_price_analysis_flow**
+- [x] **test_e2e_price_analysis_flow**
   - 실제 API 호출 → DB 저장까지 전체 흐름 테스트
   - TestClient 사용, Mock 없이 실제 흐름 검증
 
-- [ ] **test_concurrent_requests_handling**
+  주택 타입/거주 타입 추가 완료했고, test_e2e_price_analysis_flow도 통과했어. plan.md 체크까지 반영했어.
+
+변경 요약
+
+주택 유형 입력 추가: PriceRequest.property_type
+실거래가 조회가 property_type별 API 분기
+아파트: AptTrade/AptRent
+연립·다세대: RHTrade/RHRent
+단독·다가구: SHTrade/SHRent
+오피스텔: OffiTrade/OffiRent
+UseCase/Router/테스트 모두 property_type 전달하도록 수정
+e2e 가격 플로우 테스트 추가
+
+- [x] **test_concurrent_requests_handling**
   - 동시 요청 처리 테스트
   - 여러 클라이언트가 동시에 요청해도 정상 동작 확인
+
+  리스크 응답에 comment 추가했고 관련 테스트까지 업데이트했어. 핵심 변경은 아래야.
+
+변경 내용
+
+generate_risk_comment(building_info) 추가
+RiskScore에 comment 필드 추가
+리스크 API 응답에 comment 포함
+수정 파일
+
+service.py
+model.py
+analyze_risk_usecase.py
+house_analysis_router.py
+test_risk_service.py
+test_analyze_risk_usecase.py
+test_house_analysis_router.py
+test_e2e.py
+test_repositories.py (RiskScore 생성 시 comment 추가)
 
 **파일**:
 - `app/main.py` (수정)
@@ -974,6 +1079,8 @@ pytest test/house_analysis/domain/test_risk_service.py::test_calculate_risk_scor
 7. **Epic 9**: Integration (전체 통합)
 
 **총 테스트 수**: 약 35개
+ 
+
 
 ---
 
@@ -1063,3 +1170,65 @@ pytest --cov=modules/house_analysis --cov-report=html
 3. 각 Epic 완료 시 체크박스 체크
 4. 최종 통합 테스트 및 문서화
 
+ ### 핵심 기능 요약
+
+house_analysis 모듈을 다른 개발자가 사용할 때 필요한 입력/출력과 핵심 기능 요약이야.
+
+기능 1) 리스크 분석
+
+주소 기반 리스크 점수(0100) + 등급(15) + 간략 코멘트 제공
+결과는 DB risk_score_history에 저장
+HTTP 호출
+
+GET /api/house_analysis/risk
+필수 입력
+
+address: 완전한 주소 (예: 서울시 강남구 역삼동 777-0)
+내부에서 legal_code(10자리), bun, ji로 분리됨
+응답 예시
+
+{
+  "risk_score": 100,
+  "summary": 5,
+  "comment": "위반 건축물, 내진 설계 미적용, 30년 이상 노후, 주용도: 생활형숙박시설"
+}
+내부 처리 흐름
+
+AddressCodecRepository.convert_to_legal_code(address)
+→ legal_code, bun, ji
+BuildingLedgerRepository.fetch_building_info(legal_code, bun, ji)
+→ is_violation, has_seismic_design, building_age, main_use
+calculate_risk_score(...) + generate_risk_summary(...) + generate_risk_comment(...)
+기능 2) 가격 적정성 분석
+
+주소 + 주택/거주 타입 기반 가격 점수 계산
+결과는 DB price_score_history에 저장
+HTTP 호출
+
+GET /api/house_analysis/price
+필수 입력
+
+address: 완전한 주소 (예: 서울시 강남구 역삼동 777-0)
+property_type: 주택 타입
+아파트, 다가구, 연립/다세대, 오피스텔
+deal_type: 거주 타입
+매매, 전세, 월세
+price: 매물 가격
+area: 전용면적(㎡)
+응답 예시
+
+{
+  "price_score": 50,
+  "comment": "동 평균과 비슷한 가격"
+}
+내부 처리 흐름
+
+TransactionPriceRepository.fetch_transaction_prices(legal_code, deal_type, property_type)
+아파트: AptTradeDev / AptRent
+연립/다세대: RHTrade / RHRent
+단독/다가구: SHTrade / SHRent
+오피스텔: OffiTrade / OffiRent
+직접 UseCase 호출 (코드 레벨)
+
+리스크: AnalyzeRiskUseCase.execute(address)
+가격: AnalyzePriceUseCase.execute(address, deal_type, property_type, price, area)

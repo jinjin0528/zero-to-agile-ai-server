@@ -8,13 +8,19 @@ class TransactionPricePort(ABC):
     """
 
     @abstractmethod
-    def fetch_transaction_prices(self, legal_code: str, deal_type: str) -> List:
+    def fetch_transaction_prices(
+        self,
+        legal_code: str,
+        deal_type: str,
+        property_type: str,
+    ) -> List:
         """
         법정동 코드와 거래 유형으로 실거래가 정보 조회
 
         Args:
             legal_code: 법정동 코드
             deal_type: 거래 유형 (전세, 월세 등)
+            property_type: 주택 유형 (아파트, 다가구, 연립/다세대, 오피스텔)
 
         Returns:
             실거래가 정보 리스트

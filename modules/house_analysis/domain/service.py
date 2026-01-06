@@ -16,29 +16,54 @@ def calculate_risk_score(building_info: Dict[str, Any]) -> int:
     """
     score = 0
 
-    # 위반 건축물인 경우 +30점
+    # 위반 건축물 여부 (최대 45점)
     if building_info.get("is_violation", False):
-        score += 30
+        score += 45
 
-    # 내진 설계가 없는 경우 +25점
-    if not building_info.get("has_seismic_design", True):
-        score += 25
-
-    # 건물 노후도에 따른 점수 계산
-    building_age = building_info.get("building_age", 0)
-    if building_age >= 30:
-        score += 40
-    elif building_age >= 20:
-        score += 30
-    elif building_age >= 10:
-        score += 20
-    else:
+    # 내진 설계 적용 여부 (미적용/정보없음: +10)
+    has_seismic_design = building_info.get("has_seismic_design")
+    if has_seismic_design is not True:
         score += 10
+
+    # 노후도 (최대 20점, 5구간)
+    building_age = building_info.get("building_age", 0)
+    if building_age <= 5:
+        score += 0
+    elif building_age <= 9:
+        score += 4
+    elif building_age <= 19:
+        score += 8
+    elif building_age <= 29:
+        score += 14
+    else:
+        score += 20
+
+    # 주용도코드명 (최대 25점)
+    main_use = str(building_info.get("main_use", "")).strip()
+    main_use_score = {
+        # 안전
+        "단독주택": 0,
+        "다가구주택": 0,
+        "다세대주택": 0,
+        "아파트": 0,
+        # 주의
+        "오피스텔": 8,
+        # 위험
+        "다중주택": 18,
+        "근린생활시설": 18,
+        "고시원": 18,
+        "업무시설": 18,
+        # 매우 위험
+        "생활형숙박시설": 25,
+        "창고": 25,
+        "공장": 25,
+    }.get(main_use, 0)
+    score += main_use_score
 
     return score
 
 
-def generate_risk_summary(score: int) -> str:
+def generate_risk_summary(score: int) -> int:
     """
     리스크 점수에 따른 요약 메시지 생성
 
@@ -46,16 +71,64 @@ def generate_risk_summary(score: int) -> str:
         score: 리스크 점수
 
     Returns:
-        요약 메시지 (str)
+        위험 등급 (int)
     """
-    if score <= 30:
-        return "위험도 낮음"
-    elif score <= 60:
-        return "위험도 보통"
-    elif score <= 80:
-        return "위험도 높음"
+    if score <= 19:
+        return 1
+    elif score <= 39:
+        return 2
+    elif score <= 59:
+        return 3
+    elif score <= 79:
+        return 4
     else:
-        return "위험도 매우 높음"
+        return 5
+
+
+def generate_risk_comment(building_info: Dict[str, Any]) -> str:
+    """
+    리스크 요인을 간략 코멘트로 요약
+
+    Args:
+        building_info: 건축물 정보 딕셔너리
+
+    Returns:
+        요약 코멘트 (str)
+    """
+    reasons = []
+
+    if building_info.get("is_violation", False):
+        reasons.append("위반 건축물")
+
+    if building_info.get("has_seismic_design") is not True:
+        reasons.append("내진 설계 미적용")
+
+    building_age = building_info.get("building_age", 0)
+    if building_age >= 30:
+        reasons.append("30년 이상 노후")
+    elif building_age >= 20:
+        reasons.append("20년 이상 노후")
+    elif building_age >= 10:
+        reasons.append("10년 이상 노후")
+
+    main_use = str(building_info.get("main_use", "")).strip()
+    risky_uses = {
+        "오피스텔",
+        "다중주택",
+        "근린생활시설",
+        "고시원",
+        "업무시설",
+        "생활형숙박시설",
+        "창고",
+        "공장",
+    }
+    if main_use in risky_uses:
+        reasons.append(f"주용도: {main_use}")
+
+    if not reasons:
+        return "큰 위험 요인 없음"
+
+    return ", ".join(reasons)
 
 
 def calculate_price_per_area(price: float, area: float) -> float:

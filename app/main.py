@@ -11,6 +11,9 @@ from modules.mq.adapter.input.web.router.search_house_router import router as se
 from modules.student_house.adapter.input.web.router.student_house_router import (
     router as student_house_router,
 )
+from modules.house_analysis.adapter.input.web.router.house_analysis_router import (
+    router as house_analysis_router,
+)
 
 
 load_dotenv()
@@ -48,6 +51,9 @@ api_router.include_router(student_house_router)
 
 # 등록한 /api 라우터를 메인 앱에 연결합니다.
 app.include_router(api_router)
+
+# house_analysis_router는 자체적으로 /api prefix를 포함하므로 직접 등록합니다.
+app.include_router(house_analysis_router)
 
 if __name__ == "__main__":
     import uvicorn

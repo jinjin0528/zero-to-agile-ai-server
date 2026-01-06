@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, Integer, JSON, DateTime
+from sqlalchemy import Column, Integer, String, JSON, DateTime
 from sqlalchemy.sql import func
 from infrastructure.db.postgres import Base
 
@@ -9,8 +9,9 @@ class PriceScoreHistory(Base):
     - 주소별 가격 분석 결과를 저장
     """
     __tablename__ = "price_score_history"
+    __table_args__ = {'sqlite_autoincrement': True}
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     address = Column(String, nullable=False)
     deal_type = Column(String, nullable=False)
     price_score = Column(Integer, nullable=False)

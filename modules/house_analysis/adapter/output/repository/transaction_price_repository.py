@@ -24,15 +24,30 @@ class TransactionPriceRepository(TransactionPricePort):
         self.apt_trade_endpoint = "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptTradeDev"
         # 아파트 전월세 실거래가 API
         self.apt_rent_endpoint = "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcAptRent"
+        # 연립/다세대 매매/전월세 API
+        self.rh_trade_endpoint = "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcRHTrade"
+        self.rh_rent_endpoint = "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcRHRent"
+        # 단독/다가구 매매/전월세 API
+        self.sh_trade_endpoint = "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcSHTrade"
+        self.sh_rent_endpoint = "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcSHRent"
+        # 오피스텔 매매/전월세 API
+        self.offi_trade_endpoint = "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcOffiTrade"
+        self.offi_rent_endpoint = "http://openapi.molit.go.kr:8081/OpenAPI_ToolInstallPackage/service/rest/RTMSOBJSvc/getRTMSDataSvcOffiRent"
         self.timeout = 10  # seconds
 
-    def fetch_transaction_prices(self, legal_code: str, deal_type: str) -> List[Dict]:
+    def fetch_transaction_prices(
+        self,
+        legal_code: str,
+        deal_type: str,
+        property_type: str,
+    ) -> List[Dict]:
         """
         법정동 코드와 거래 유형으로 실거래가 조회
 
         Args:
             legal_code: 법정동 코드 (10자리, 예: 1168010100)
             deal_type: 거래 유형 ("매매", "전세", "월세")
+            property_type: 주택 유형 ("아파트", "다가구", "연립/다세대", "오피스텔")
 
         Returns:
             List[Dict]: 실거래가 목록 [{"price": int, "area": float, "deal_type": str}, ...]
@@ -43,11 +58,10 @@ class TransactionPriceRepository(TransactionPricePort):
 
         lawd_cd = legal_code[:5]  # 지역코드 (시군구코드)
 
-        # 거래 유형에 따라 API 엔드포인트 선택
-        if deal_type == "매매":
-            endpoint = self.apt_trade_endpoint
-        else:  # 전세, 월세
-            endpoint = self.apt_rent_endpoint
+        # 거래 유형/주택 유형에 따라 API 엔드포인트 선택
+        endpoint = self._resolve_endpoint(property_type, deal_type)
+        if endpoint is None:
+            return []
 
         # 최근 데이터 조회 (현재 년월)
         from datetime import datetime
@@ -136,3 +150,23 @@ class TransactionPriceRepository(TransactionPricePort):
 
         except ET.ParseError:
             return []  # XML 파싱 실패 시 빈 리스트 반환
+
+    def _resolve_endpoint(self, property_type: str, deal_type: str) -> str | None:
+        prop = property_type.strip()
+        if deal_type == "매매":
+            return {
+                "아파트": self.apt_trade_endpoint,
+                "연립/다세대": self.rh_trade_endpoint,
+                "다가구": self.sh_trade_endpoint,
+                "단독": self.sh_trade_endpoint,
+                "오피스텔": self.offi_trade_endpoint,
+            }.get(prop)
+
+        # 전세/월세는 rent 엔드포인트 사용
+        return {
+            "아파트": self.apt_rent_endpoint,
+            "연립/다세대": self.rh_rent_endpoint,
+            "다가구": self.sh_rent_endpoint,
+            "단독": self.sh_rent_endpoint,
+            "오피스텔": self.offi_rent_endpoint,
+        }.get(prop)

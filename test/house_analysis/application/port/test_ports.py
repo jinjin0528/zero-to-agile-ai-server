@@ -28,7 +28,7 @@ def test_address_codec_port_interface():
 def test_building_ledger_port_interface():
     """
     BuildingLedgerPort 인터페이스 정의 테스트
-    - 메서드: fetch_building_info(legal_code: str) -> dict
+    - 메서드: fetch_building_info(legal_code: str, bun: str, ji: str) -> dict
     """
     # Then: BuildingLedgerPort가 ABC를 상속하는지 확인
     assert issubclass(BuildingLedgerPort, ABC)
@@ -45,7 +45,7 @@ def test_building_ledger_port_interface():
 def test_transaction_price_port_interface():
     """
     TransactionPricePort 인터페이스 정의 테스트
-    - 메서드: fetch_transaction_prices(legal_code: str, deal_type: str) -> list
+    - 메서드: fetch_transaction_prices(legal_code: str, deal_type: str, property_type: str) -> list
     """
     # Then: TransactionPricePort가 ABC를 상속하는지 확인
     assert issubclass(TransactionPricePort, ABC)

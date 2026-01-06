@@ -7,7 +7,9 @@ class RiskScore:
     """리스크 점수 도메인 모델"""
     score: int
     factors: Dict[str, Any]
-    summary: str
+    summary: int
+    comment: str
+    address: str
 
 
 @dataclass
@@ -16,3 +18,4 @@ class PriceScore:
     score: int
     comment: str
     metrics: Dict[str, Any]
+    address: str
