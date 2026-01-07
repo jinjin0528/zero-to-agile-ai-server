@@ -1,5 +1,5 @@
 """
-건축물�???API Repository 구현�?
+건축물대장 API Repository 구현체
 """
 import xml.etree.ElementTree as ET
 import requests
@@ -14,8 +14,8 @@ load_dotenv()
 
 class BuildingLedgerRepository(BuildingLedgerPort):
     """
-    건축물�????�보�?조회?�는 Repository
-    공공?�이?�포??건축물�???API ?�용
+    건축물대장 정보를 조회하는 Repository
+    공공데이터포털 건축물대장 API 사용
     """
 
     def __init__(self):
@@ -26,31 +26,32 @@ class BuildingLedgerRepository(BuildingLedgerPort):
 
     def fetch_building_info(self, legal_code: str, bun: str, ji: str) -> dict:
         """
-        법정??코드�?건축�??�보 조회
+        법정동코드로 건축물 정보 조회
 
         Args:
-            legal_code: 법정??코드 (10?�리, ?? 1168010100)
-                       ??5?�리: ?�군구코?? ??5?�리: 법정?�코??            bun: �?(4?�리)
-            ji: 지 (4?�리)
+            legal_code: 법정동코드 (10자리, 예: 1168010100)
+                       앞5자리: 시군구코드, 뒤5자리: 법정동코드
+            bun: 번 (4자리)
+            ji: 지 (4자리)
 
         Returns:
-            dict: 건축�??�보 (is_violation, has_seismic_design, building_age)
+            dict: 건축물정보 (is_violation, has_seismic_design, building_age)
 
         Raises:
-            BuildingInfoNotFoundError: 건축�??�보�?찾을 ???�는 경우
+            BuildingInfoNotFoundError: 건축물정보를 찾을 수 없는 경우
         """
-        # 법정??코드�??�군구코?��? 법정?�코?�로 분리
+        # 법정동코드를 시군구코드와 법정동코드로 분리
         if len(legal_code) != 10:
-            raise ValueError(f"법정??코드??10?�리?�야 ?�니?? {legal_code}")
+            raise ValueError(f"법정동코드는 10자리여야 합니다: {legal_code}")
 
-        sigungu_cd = legal_code[:5]  # ??5?�리
-        bjdong_cd = legal_code[5:]   # ??5?�리
+        sigungu_cd = legal_code[:5]  # 앞5자리
+        bjdong_cd = legal_code[5:]   # 뒤5자리
 
-        # �?지 값�? 4?�리�??�딩
+        # 번/지 값을 4자리 패딩
         bun = str(bun).zfill(4)
         ji = str(ji).zfill(4)
 
-        # API ?�출
+        # API 호출
         try:
             params = {
                 'serviceKey': self.api_key,
@@ -69,28 +70,28 @@ class BuildingLedgerRepository(BuildingLedgerPort):
             )
             response.raise_for_status()
 
-            # XML ?�싱
+            # XML 파싱
             return self._parse_xml_response(response.text)
 
         except requests.Timeout:
-            raise BuildingInfoNotFoundError(f"API ?�청 ?�간 초과: {legal_code}")
+            raise BuildingInfoNotFoundError(f"API 요청 시간 초과: {legal_code}")
         except requests.RequestException as e:
-            raise BuildingInfoNotFoundError(f"API ?�청 ?�패: {str(e)}")
+            raise BuildingInfoNotFoundError(f"API 요청 실패: {str(e)}")
 
     def _parse_xml_response(self, xml_text: str) -> dict:
         """
-        XML ?�답???�싱?�여 ?�요???�보 추출
+        XML 응답을 파싱하여 필요한 정보 추출
 
         Args:
-            xml_text: XML ?�답 ?�스??
+            xml_text: XML 응답 텍스트
 
         Returns:
-            dict: 건축�??�보
+            dict: 건축물정보
         """
         try:
             root = ET.fromstring(xml_text)
 
-            # ?�러 체크
+            # 에러 체크
             header = root.find('header')
             if header is not None:
                 result_code = header.findtext('resultCode', '')
@@ -98,44 +99,44 @@ class BuildingLedgerRepository(BuildingLedgerPort):
 
                 if result_code != '00':
                     raise BuildingInfoNotFoundError(
-                        f"API ?�러 (코드: {result_code}, 메시지: {result_msg})"
+                        f"API 에러 (코드: {result_code}, 메시지: {result_msg})"
                     )
 
-            # 건축�??�이??추출
+            # 건축물데이터 추출
             body = root.find('body')
             if body is None:
-                raise BuildingInfoNotFoundError("?�답??body가 ?�습?�다")
+                raise BuildingInfoNotFoundError("응답에 body가 없습니다")
 
             items = body.find('items')
             if items is None:
-                raise BuildingInfoNotFoundError("?�답??items가 ?�습?�다")
+                raise BuildingInfoNotFoundError("응답에 items가 없습니다")
 
             item = items.find('item')
             if item is None:
-                raise BuildingInfoNotFoundError("건축�??�이?��? 찾을 ???�습?�다")
+                raise BuildingInfoNotFoundError("건축물데이터를 찾을 수 없습니다")
 
-            # ?�요???�드 추출 �?변??            # ?�반 건축�??��? (vlRat: ?�반건축�??��?)
-            vl_rat_yn = item.findtext('vlRatEstbYn', 'N')  # ?�반건축물여부
+            # 주요 필드 추출 및 변환
+            # 위반 건축물 여부 (vlRat: 위반건축물여부)
+            vl_rat_yn = item.findtext('vlRatEstbYn', 'N')  # 위반건축물여부
             is_violation = vl_rat_yn.upper() == 'Y'
 
-            # ?�진 ?�계 ?��? (qltyGradeYn: ?�질?�급 ?��?, etcRoof: 기�? 지�???
-            # ?�제로는 useAprDay(?�용?�인??�??�진?�계 ?�무???�점 기�? ?�단
-            use_apr_day = item.findtext('useAprDay', '')  # ?�용?�인??(YYYYMMDD)
+            # 실제로는 useAprDay(사용승인일)로 내진설계 의무화 시점 기준 판단
+            use_apr_day = item.findtext('useAprDay', '')  # 사용승인일(YYYYMMDD)
 
-            # 1988???�후 건물?� ?�진?�계 ?�무??(간단??기�?)
+            # 1988년 이후 건물은 내진설계 의무화 (간단한 기준)
             has_seismic_design = False
             if use_apr_day and len(use_apr_day) >= 4:
                 year = int(use_apr_day[:4])
                 has_seismic_design = year >= 1988
 
-            # 건물 ?�령 계산
+            # 건물 연령 계산
             building_age = 0
             if use_apr_day and len(use_apr_day) >= 4:
                 year = int(use_apr_day[:4])
                 current_year = datetime.now().year
                 building_age = current_year - year
 
-            # 주용?�코?�명
+            # 주용도코드명
             main_use = item.findtext('mainPurpsCdNm', '').strip()
 
             return {
@@ -146,4 +147,4 @@ class BuildingLedgerRepository(BuildingLedgerPort):
             }
 
         except ET.ParseError as e:
-            raise BuildingInfoNotFoundError(f"XML ?�싱 ?�패: {str(e)}")
+            raise BuildingInfoNotFoundError(f"XML 파싱 실패: {str(e)}")
