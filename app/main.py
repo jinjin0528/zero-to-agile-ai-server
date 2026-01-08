@@ -8,9 +8,10 @@ from modules.auth.adapter.input.web.auth_router import router as auth_router
 from modules.finder_request.adapter.input.web.router.finder_request_router import router as finder_request_router
 from modules.ai_explaination.adapter.input.web.router.chatbot import router as chatbot_router
 from modules.mq.adapter.input.web.router.search_house_router import router as search_house_router
-from modules.student_house.adapter.input.web.router.student_house_router import (
-    router as student_house_router,
-)
+# TODO: 추천 로직이 완성되면 student_house 라우터를 다시 활성화한다.
+# from modules.student_house.adapter.input.web.router.student_house_router import (
+#     router as student_house_router,
+# )
 from modules.house_analysis.adapter.input.web.router.house_analysis_router import (
     router as house_analysis_router,
 )
@@ -51,7 +52,8 @@ api_router.include_router(finder_request_router)
 api_router.include_router(chatbot_router)
 
 # ✅ student_house_router를 api_router 아래에 등록 (/api + /student_house = /api/student_house)
-api_router.include_router(student_house_router)
+# TODO: 추천 로직이 완성되면 라우터 등록을 복구한다.
+# api_router.include_router(student_house_router)
 
 # ✅ chat_router를 api_router 아래에 등록 (/api + /chatbot = /api/chatbot)
 api_router.include_router(chat_router)

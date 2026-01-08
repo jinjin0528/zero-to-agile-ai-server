@@ -15,12 +15,16 @@ class StudentHouseORM(Base):
     price_score = Column(Float, nullable=False)
     option_score = Column(Float, nullable=False)
     risk_score = Column(Float, nullable=False)
+    distance_score = Column(Float, nullable=False, server_default="0")
     base_total_score = Column(Float, nullable=False, index=True)
     is_student_recommended = Column(Boolean, default=False, index=True)
 
     processing_status = Column(String(20), nullable=False, default="READY")
     last_error = Column(Text, nullable=True)
     last_error_at = Column(DateTime, nullable=True)
+
+    observation_version = Column(String(20), nullable=True)
+    policy_version = Column(String(20), nullable=True)
 
     created_at = Column(DateTime, server_default=func.now(), nullable=True)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=True)
