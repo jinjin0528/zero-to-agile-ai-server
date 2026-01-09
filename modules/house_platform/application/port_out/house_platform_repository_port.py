@@ -9,6 +9,12 @@ from modules.house_platform.application.dto.fetch_and_store_dto import (
 from modules.house_platform.application.dto.delete_house_platform_dto import (
     DeleteHousePlatformResult,
 )
+from modules.house_platform.application.dto.monitor_house_platform_dto import (
+    HousePlatformMonitorTarget,
+)
+from modules.house_platform.application.dto.house_platform_location_dto import (
+    HousePlatformLocation,
+)
 
 
 class HousePlatformRepositoryPort(ABC):
@@ -27,4 +33,25 @@ class HousePlatformRepositoryPort(ABC):
     @abstractmethod
     def soft_delete_by_id(self, house_platform_id: int) -> DeleteHousePlatformResult:
         """is_banned 플래그로 삭제 처리한다."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def fetch_monitor_targets(
+        self, updated_before, limit: int | None = None
+    ) -> Sequence[HousePlatformMonitorTarget]:
+        """updated_at 기준 모니터링 대상 목록을 조회한다."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def fetch_bundle_by_id(
+        self, house_platform_id: int
+    ) -> HousePlatformUpsertBundle | None:
+        """기존 저장 데이터를 번들 형태로 조회한다."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def fetch_location_by_id(
+        self, house_platform_id: int
+    ) -> HousePlatformLocation | None:
+        """매물 경위도 정보를 단건 조회한다."""
         raise NotImplementedError
