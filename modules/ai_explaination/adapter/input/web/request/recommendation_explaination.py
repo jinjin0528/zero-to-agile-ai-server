@@ -28,8 +28,8 @@ class RecommendationItem(BaseModel):
     semantic_description: str | None = Field(default=None, description="매물 요약 설명문")
     reasons: List[str] = Field(default_factory=list, description="추천 이유 목록")
 
-
-class RecommendationChatbotRequest(BaseModel):
+# 임차인 추천 설명
+class RecommendationExplainationRequest(BaseModel):
     tone: ChatTone = Field(
         default=ChatTone.FORMAL,
         description="답변 말투 (기본: 존댓말)",
@@ -42,3 +42,5 @@ class RecommendationChatbotRequest(BaseModel):
         default=None,
         description="추천된 매물 요약",
     )
+
+# 임대인 추천 설명
