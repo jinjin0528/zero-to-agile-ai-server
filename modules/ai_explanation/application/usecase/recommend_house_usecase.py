@@ -1,12 +1,12 @@
 from typing import List
 
-from modules.ai_explaination.adapter.input.web.request.recommendation_explaination import (
+from modules.ai_explanation.adapter.input.web.request.recommendation_explaination import (
     RecommendationItem,
 )
-from modules.ai_explaination.adapter.input.web.request.tenant_preference import (
+from modules.ai_explanation.adapter.input.web.request.owner_request import (
     TenantPreferenceRequest,
 )
-from modules.ai_explaination.adapter.input.web.response.recommendation_result import (
+from modules.ai_explanation.adapter.input.web.response.recommendation_result import (
     RecommendationResultResponse,
 )
 

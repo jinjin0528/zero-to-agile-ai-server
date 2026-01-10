@@ -1,13 +1,13 @@
-from modules.ai_explaination.adapter.input.web.request.recommendation_explaination import (
+from modules.ai_explanation.adapter.input.web.request.recommendation_explaination import (
     RecommendationExplainationRequest,
     RecommendationItem,
 )
-from modules.ai_explaination.adapter.input.web.response.recommendation_chatbot import (
+from modules.ai_explanation.adapter.input.web.response.recommendation_chatbot import (
     RecommendationChatbotResponse,
 )
-from modules.ai_explaination.adapter.output.llm_adapter import LLMAdapter
-from modules.ai_explaination.application.port.llm_port import LLMPort
-from modules.ai_explaination.domain.tone import ChatTone
+from modules.ai_explanation.adapter.output.llm_adapter import LLMAdapter
+from modules.ai_explanation.application.port.llm_port import LLMPort
+from modules.ai_explanation.domain.tone import ChatTone
 
 
 class ExplainRecommendationUseCase:
