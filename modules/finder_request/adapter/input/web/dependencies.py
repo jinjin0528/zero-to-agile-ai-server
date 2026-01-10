@@ -64,7 +64,10 @@ def get_edit_finder_request_usecase(
 
 
 def get_delete_finder_request_usecase(
-    repository: FinderRequestRepository = Depends(get_finder_request_repository)
+    repository: FinderRequestRepository = Depends(get_finder_request_repository),
+    embedding_repository: FinderRequestEmbeddingRepository = Depends(
+        get_finder_request_embedding_repository
+    ),
 ) -> DeleteFinderRequestUseCase:
     """DeleteFinderRequest UseCase 인스턴스 생성"""
-    return DeleteFinderRequestUseCase(repository)
+    return DeleteFinderRequestUseCase(repository, embedding_repository)

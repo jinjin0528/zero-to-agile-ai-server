@@ -74,3 +74,29 @@ class FinderRequestEmbeddingRepository(FinderRequestEmbeddingPort):
                 generator.close()
             else:
                 session.close()
+
+    def delete_embedding(self, finder_request_id: int) -> bool:
+        """요구서 임베딩을 삭제한다."""
+        session, generator = open_session(self._session_factory)
+        try:
+            row = (
+                session.query(FinderRequestEmbeddingORM)
+                .filter(
+                    FinderRequestEmbeddingORM.finder_request_id
+                    == finder_request_id
+                )
+                .one_or_none()
+            )
+            if not row:
+                return True
+            session.delete(row)
+            session.commit()
+            return True
+        except Exception:
+            session.rollback()
+            return False
+        finally:
+            if generator:
+                generator.close()
+            else:
+                session.close()

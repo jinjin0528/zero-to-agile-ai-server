@@ -3,9 +3,9 @@ name: Deploy agilebang-server via Docker (SSH)
 on:
   push:
     branches:
-      - main     
+      - main      
  
-jobs: 
+jobs:  
   build-and-push:
     runs-on: ubuntu-latest
 

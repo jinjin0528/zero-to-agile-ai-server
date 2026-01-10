@@ -18,3 +18,8 @@ class FinderRequestEmbeddingPort(ABC):
     def get_embedding(self, finder_request_id: int) -> list[float] | None:
         """요구서 임베딩을 조회한다."""
         raise NotImplementedError
+
+    @abstractmethod
+    def delete_embedding(self, finder_request_id: int) -> bool:
+        """요구서 임베딩을 삭제한다."""
+        raise NotImplementedError

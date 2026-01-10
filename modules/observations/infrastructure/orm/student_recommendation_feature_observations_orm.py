@@ -1,0 +1,44 @@
+from sqlalchemy import Column, Integer, BigInteger, Float, String, DateTime, Text, ARRAY, JSON
+from sqlalchemy.orm import declarative_base
+from datetime import datetime, timezone
+
+Base = declarative_base()
+
+class StudentRecommendationFeatureObservationORM(Base):
+    __tablename__ = "student_recommendation_feature_observations"
+
+    # 매물 식별
+    house_platform_id = Column(BigInteger, primary_key=True, nullable=False)
+    snapshot_id = Column(String, nullable=False)
+
+    # 가격 관련
+    price_percentile = Column(Float, nullable=False)
+    price_zscore = Column(Float, nullable=False)
+    estimated_move_in_cost = Column(BigInteger, nullable=False)
+    monthly_cost_est = Column(BigInteger, nullable=False)
+    price_burden_nonlinear = Column(Float, nullable=False)
+
+    # 거리 관련
+    distance_to_school_min = Column(Float, nullable=False)
+    distance_percentile = Column(Float, nullable=False)
+    distance_bucket = Column(String(20), nullable=False)
+    distance_nonlinear_score = Column(Float, nullable=False)
+
+    # 위험 관련
+    risk_event_count = Column(Integer, nullable=False)
+    risk_event_types = Column(ARRAY(Text), nullable=False)
+    risk_probability_est = Column(Float, nullable=False)
+    risk_severity_score = Column(Float, nullable=False)
+    risk_nonlinear_penalty = Column(Float, nullable=False)
+
+    # 편의 관련
+    essential_option_coverage = Column(Float, nullable=False)
+    convenience_score = Column(Float, nullable=False)
+
+    # 메모 및 버전
+    observation_notes = Column(JSON, nullable=True)
+    observation_version = Column(String(20), nullable=False)
+    source_data_version = Column(String(20), nullable=False)
+
+    # 생성/계산 시간
+    calculated_at = Column(DateTime, nullable=True, default=lambda: datetime.now(timezone.utc))
