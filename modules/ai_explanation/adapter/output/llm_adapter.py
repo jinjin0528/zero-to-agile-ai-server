@@ -62,7 +62,8 @@ class LLMAdapter(LLMPort):
 
     def generate_owner_explanation(self, request_data, tone) -> str:
 
-        my_house = request_data.my_house
+        tone = request_data.tone.value
+        my_house = request_data.owner_house
         finders = request_data.finders
 
         # 1. 지역 매칭 분석
@@ -95,4 +96,4 @@ class LLMAdapter(LLMPort):
                 위 매칭 포인트를 근거로, 이 세입자를 놓치면 안 되는 이유를 정중하게({tone}) 3문장으로 설득해 주세요.
                 """
 
-        return self._call_openai("당신은 애방의 세입자 추천 AI입니다.", prompt)
+        return self._call_openai(..., prompt)
