@@ -13,7 +13,7 @@ class ObservationRepositoryPort(ABC):
     @abstractmethod
     def save(
         self, observation: StudentRecommendationFeatureObservation
-    ) -> None:
+    ) -> StudentRecommendationFeatureObservation:
         pass
 
     @abstractmethod

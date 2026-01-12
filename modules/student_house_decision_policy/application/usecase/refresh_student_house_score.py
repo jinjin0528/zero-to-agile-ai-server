@@ -69,9 +69,6 @@ class RefreshStudentHouseScoreService(RefreshStudentHouseScorePort):
         policy = command.policy or self.policy
         calculator = DecisionScoreCalculator(policy)
 
-        resolved_observation_version = (
-            command.observation_version or _build_date_version()
-        )
         # TODO: 관측 버전 관리 규칙이 확정되면 매칭 규칙을 고정한다.
 
         unique_university_ids = set(
@@ -100,7 +97,7 @@ class RefreshStudentHouseScoreService(RefreshStudentHouseScorePort):
                 )
                 record = calculator.calculate(
                     source,
-                    observation_version=resolved_observation_version,
+                    observation_version=command.observation_version,
                     policy_version=policy.policy_version,
                 )
                 self.student_house_repo.upsert_score(record)
@@ -112,7 +109,7 @@ class RefreshStudentHouseScoreService(RefreshStudentHouseScorePort):
                 )
 
         return RefreshStudentHouseScoreResult(
-            observation_version=resolved_observation_version,
+            observation_version=command.observation_version,
             policy_version=policy.policy_version,
             total_observations=len(candidates),
             processed_count=processed,
@@ -200,11 +197,6 @@ class RefreshStudentHouseScoreService(RefreshStudentHouseScorePort):
         return self.feature_observation_repo.find_latest_by_house_id(
             house_platform_id
         )
-
-
-def _build_date_version() -> str:
-    """임시 관측 버전 값을 만든다."""
-    return datetime.now(timezone.utc).strftime("%Y%m%d")
 
 
 def _average_distance(
