@@ -1,6 +1,8 @@
 from fastapi import Depends
 
 from infrastructure.db.postgres import get_db_session, SessionLocal
+from modules.decision_context_signal_builder.application.usecase.build_decision_context_signal_usecase import \
+    BuildDecisionContextSignalUseCase
 from modules.finder_request.adapter.output.repository.finder_request_repository import (
     FinderRequestRepository,
 )
@@ -9,6 +11,15 @@ from modules.house_platform.infrastructure.repository.house_platform_repository 
 )
 from modules.observations.adapter.output.repository.student_recommendation_feature_observation_repository_impl import (
     StudentRecommendationFeatureObservationRepository,
+)
+from modules.observations.adapter.output.repository.student_recommendtation_price_observation_repository_impl import (
+    StudentRecommendationPriceObservationRepository,
+)
+from modules.observations.adapter.output.repository.student_recommendation_distance_observation_repository_impl import (
+    StudentRecommendationDistanceObservationRepository,
+)
+from modules.university.adapter.output.university_repository import (
+    UniversityRepository,
 )
 from modules.recommendations.application.usecase.recommend_student_house import (
     RecommendStudentHouseService,
@@ -32,14 +43,18 @@ def get_filter_candidate_usecase(
 ) -> FilterCandidateService:
     """필터 후보 유스케이스 인스턴스를 생성한다."""
     finder_request_repo = FinderRequestRepository(db_session)
-    observation_repo = StudentRecommendationFeatureObservationRepository(
-        SessionLocal
-    )
     candidate_repo = HousePlatformCandidateRepository()
+    
+    price_repo = StudentRecommendationPriceObservationRepository(db_session)
+    distance_repo = StudentRecommendationDistanceObservationRepository(db_session)
+    university_repo = UniversityRepository(db_session)
+
     return FilterCandidateService(
-        finder_request_repo,
-        candidate_repo,
-        observation_repo,
+        finder_request_repo=finder_request_repo,
+        house_platform_repo=candidate_repo,
+        price_observation_repo=price_repo,
+        distance_observation_repo=distance_repo,
+        university_repo=university_repo,
     )
 
 
@@ -76,4 +91,12 @@ def get_recommend_student_house_mock_usecase(
         house_platform_repo=house_platform_repo,
         observation_repo=observation_repo,
         score_repo=score_repo,
+    )
+
+def get_build_decision_context_signal_usecase() -> BuildDecisionContextSignalUseCase:
+    observation_repo = StudentRecommendationFeatureObservationRepository(
+        SessionLocal
+    )
+    return BuildDecisionContextSignalUseCase(
+        observation_repo=observation_repo
     )

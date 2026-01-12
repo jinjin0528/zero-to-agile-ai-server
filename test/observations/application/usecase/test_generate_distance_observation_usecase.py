@@ -1,100 +1,60 @@
 import pytest
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
-from modules.observations.application.usecase.generate_distance_observation_usecase import (
-    GenerateDistanceObservationUseCase,
+from modules.observations.application.usecase.generate_price_observation_usecase import (
+    GeneratePriceObservationUseCase,
 )
-from modules.observations.domain.model.distance_feature_observation import DistanceFeatureObservation
+from modules.observations.domain.model.price_feature_observation import PriceFeatureObservation
 
 
-# =========================
-# Fake / Stub Models
-# =========================
-
-@dataclass
-class FakeHouse:
-    lat_lng: dict
-
-
-@dataclass
-class FakeBundle:
-    house_platform: FakeHouse
-
-
-@dataclass
-class FakeUniversity:
-    university_location_id: int
-    lat: float
-    lng: float
-
-
-# =========================
-# Fake Repositories
-# =========================
-
-class FakeDistanceObservationRepository:
+# ---------- Fake Repository ----------
+class FakePriceObservationRepository:
+    """UseCase와 동일 시그니처: save 메서드"""
     def __init__(self):
         self.called = False
-        self.house_id = None
-        self.distances = None
+        self.saved_observation = None
 
-    def save_bulk(self, house_id: int, distances: list[DistanceFeatureObservation]):
+    def save(self, observation: PriceFeatureObservation):
         self.called = True
-        self.house_id = house_id
-        self.distances = distances
+        self.saved_observation = observation
 
 
-class FakeHousePlatformRepository:
-    def fetch_bundle_by_id(self, house_id: int):
-        return FakeBundle(
-            house_platform=FakeHouse(
-                lat_lng={"lat": 37.5665, "lng": 126.9780}  # 서울 시청
-            )
-        )
-
-
-class FakeUniversityRepository:
-    def get_university_locations(self):
-        return [
-            FakeUniversity(1, 37.5512, 126.9882),
-            FakeUniversity(2, 37.5800, 126.9980),
-            FakeUniversity(3, 37.6000, 127.0100),
-        ]
-
-
-# =========================
-# Test
-# =========================
-
-def test_generate_distance_observation_usecase():
+# ---------- Test ----------
+def test_generate_price_observation_usecase():
     # given
-    distance_repo = FakeDistanceObservationRepository()
-    house_repo = FakeHousePlatformRepository()
-    university_repo = FakeUniversityRepository()
+    house_prices = {
+        101: 500_000,  # house_platform_id -> price
+        102: 800_000,
+        103: 1_200_000,
+    }
 
-    usecase = GenerateDistanceObservationUseCase(
-        distance_observation_repo=distance_repo,
-        raw_house_repo=house_repo,
-        university_repo=university_repo,
-    )
+    price_repo = FakePriceObservationRepository()
+    usecase = GeneratePriceObservationUseCase(price_repo, house_prices)
+
+    recommendation_observation_id = 999
+    house_platform_id = 102
 
     # when
-    usecase.execute(house_id=123)
+    observation = usecase.execute(
+        recommendation_observation_id=recommendation_observation_id,
+        house_platform_id=house_platform_id
+    )
 
     # then
-    assert distance_repo.called is True
-    assert distance_repo.house_id == 123
-    assert len(distance_repo.distances) == 3
+    assert price_repo.called is True
+    saved = price_repo.saved_observation
+    assert saved is not None
 
-    for obs in distance_repo.distances:
-        assert obs.학교까지_분 > 0
-        assert 0 <= obs.거리_백분위 <= 1
-        assert obs.거리_버킷 in {
-            "0_10분",
-            "10_20분",
-            "20_30분",
-            "30_40분",
-            "40분_이상",
-        }
-        assert 0 <= obs.거리_비선형_점수 <= 1
-        assert obs.calculated_at is not None
+    # ---------- FK 필수 값 검증 ----------
+    assert saved.recommendation_observation_id == recommendation_observation_id
+    assert saved.house_platform_id == house_platform_id
+    assert saved.id is None  # 새로 생성된 observation
+
+    # ---------- 계산 값 검증 ----------
+    assert 0.0 <= saved.가격_백분위 <= 1.0
+    assert -10.0 <= saved.가격_z점수 <= 10.0
+    assert saved.예상_입주비용 >= 0
+    assert saved.월_비용_추정 >= 0
+    assert 0.0 <= saved.가격_부담_비선형 <= 1.0
+    assert saved.calculated_at is not None
