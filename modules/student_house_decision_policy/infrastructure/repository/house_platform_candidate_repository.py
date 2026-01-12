@@ -32,6 +32,7 @@ class HousePlatformCandidateRepository(HousePlatformCandidateReadPort):
             query = (
                 session.query(
                     HousePlatformORM.house_platform_id,
+                    HousePlatformORM.snapshot_id,
                     HousePlatformORM.deposit,
                     HousePlatformORM.monthly_rent,
                     HousePlatformORM.manage_cost,
@@ -42,11 +43,9 @@ class HousePlatformCandidateRepository(HousePlatformCandidateReadPort):
                         HousePlatformORM.is_banned.is_(None),
                     )
                 )
-                # 보증금 누락 매물은 제외한다.
-                .filter(HousePlatformORM.deposit.isnot(None))
             )
 
-            query = self._apply_budget_filters(query, criteria)
+            query = self._apply_price_type_filters(query, criteria)
             query = self._apply_request_filters(query, criteria)
 
             if limit is not None:
@@ -55,9 +54,10 @@ class HousePlatformCandidateRepository(HousePlatformCandidateReadPort):
             return [
                 FilterCandidate(
                     house_platform_id=row[0],
-                    deposit=int(row[1]),
-                    monthly_rent=int(row[2]) if row[2] is not None else None,
-                    manage_cost=int(row[3]) if row[3] is not None else None,
+                    snapshot_id=row[1],
+                    deposit=int(row[2]) if row[2] is not None else None,
+                    monthly_rent=int(row[3]) if row[3] is not None else None,
+                    manage_cost=int(row[4]) if row[4] is not None else None,
                 )
                 for row in rows
             ]
@@ -65,13 +65,8 @@ class HousePlatformCandidateRepository(HousePlatformCandidateReadPort):
             session.close()
 
     @staticmethod
-    def _apply_budget_filters(query, criteria: FilterCandidateCriteria):
-        """예산 관련 필터를 적용한다."""
-        if criteria.max_deposit_limit is not None:
-            query = query.filter(
-                HousePlatformORM.deposit <= criteria.max_deposit_limit
-            )
-
+    def _apply_price_type_filters(query, criteria: FilterCandidateCriteria):
+        """price_type 조건을 적용한다."""
         if criteria.price_type:
             # 전세는 월세가 없을 수 있어 monthly_rent 필터를 완화한다.
             price_key = criteria.price_type.upper()
@@ -97,30 +92,6 @@ class HousePlatformCandidateRepository(HousePlatformCandidateReadPort):
                         HousePlatformORM.monthly_rent.isnot(None),
                     )
                 )
-        else:
-            query = query.filter(
-                or_(
-                    HousePlatformORM.sales_type.ilike("%전세%"),
-                    HousePlatformORM.monthly_rent.isnot(None),
-                )
-            )
-
-        if criteria.max_rent_limit is not None:
-            price_key = criteria.price_type.upper() if criteria.price_type else ""
-            if price_key != "JEONSE":
-                if price_key == "MONTHLY":
-                    query = query.filter(
-                        HousePlatformORM.monthly_rent
-                        <= criteria.max_rent_limit
-                    )
-                else:
-                    query = query.filter(
-                        or_(
-                            HousePlatformORM.sales_type.ilike("%전세%"),
-                            HousePlatformORM.monthly_rent
-                            <= criteria.max_rent_limit,
-                        )
-                    )
         return query
 
     @staticmethod

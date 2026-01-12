@@ -28,7 +28,7 @@ class AddressCodecRepository(AddressCodecPort):
         Returns:
             dict: legal_code, address, bun, ji
         """
-        normalized = (address or "").strip()
+        normalized = _normalize_address((address or "").strip())
         if not normalized:
             raise InvalidAddressError("주소가 비어있습니다")
 
@@ -67,6 +67,27 @@ def _lookup_legal_dong(address: str) -> tuple[str, str]:
         raise InvalidAddressError("법정동 코드를 찾을 수 없습니다")
 
     return best_name, best_code
+
+
+def _normalize_address(address: str) -> str:
+    if not address:
+        return address
+    # Normalize common province/city abbreviations.
+    replacements = {
+        "서울시": "서울특별시",
+        "부산시": "부산광역시",
+        "대구시": "대구광역시",
+        "인천시": "인천광역시",
+        "광주시": "광주광역시",
+        "대전시": "대전광역시",
+        "울산시": "울산광역시",
+        "세종시": "세종특별자치시",
+        "제주도": "제주특별자치도",
+    }
+    for short, full in replacements.items():
+        if address.startswith(short + " "):
+            return full + address[len(short):]
+    return address
 
 
 def _load_legal_dong_data() -> list[tuple[str, str]]:

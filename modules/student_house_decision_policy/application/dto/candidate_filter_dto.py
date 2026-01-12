@@ -29,7 +29,8 @@ class FilterCandidate:
     """필터 조건을 통과한 후보."""
 
     house_platform_id: int
-    deposit: int
+    snapshot_id: str | None
+    deposit: int | None
     monthly_rent: int | None
     manage_cost: int | None
 
@@ -42,3 +43,16 @@ class FilterCandidateResult:
     criteria: FilterCandidateCriteria
     candidates: Sequence[FilterCandidate] = field(default_factory=list)
     message: str | None = None
+
+
+@dataclass
+class ObservationPriceFeatures:
+    """관측된 가격 관련 지표."""
+
+    house_platform_id: int
+    snapshot_id: str
+    estimated_move_in_cost: int
+    monthly_cost_est: int
+    price_percentile: float
+    price_zscore: float
+    price_burden_nonlinear: float
