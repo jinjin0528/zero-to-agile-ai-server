@@ -7,7 +7,7 @@ from modules.observations.domain.model.distance_feature_observation import Dista
 class DistanceObservationRepositoryPort(ABC):
 
     @abstractmethod
-    def save_bulk(self, house_id: int, distances: List[DistanceFeatureObservation]):
+    def save_bulk(self, distances: List[DistanceFeatureObservation]):
         """매물 단위로 대학별 거리 observation bulk 저장"""
         pass
 
