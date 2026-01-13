@@ -60,9 +60,9 @@ class LLMAdapter(LLMPort):
             user_prompt=prompt
         )
 
-    def generate_owner_explanation(self, request_data, tone) -> str:
+    def generate_owner_explanation(self, request_data) -> str:
 
-        tone = request_data.tone.value
+        tone_str = request_data.tone.value
         owner_house = request_data.owner_house
         finders = request_data.finders
 
@@ -93,7 +93,7 @@ class LLMAdapter(LLMPort):
 
                 [지시 사항]
                 당신은 임대인에게 세입자를 추천하는 AI 비서입니다.
-                위 매칭 포인트를 근거로, 이 세입자를 놓치면 안 되는 이유를 정중하게({tone}) 3문장으로 설득해 주세요.
+                위 매칭 포인트를 근거로, 이 세입자를 놓치면 안 되는 이유를 정중하게({tone_str}) 3문장으로 설득해 주세요.
                 """
 
-        return self._call_openai(..., prompt)
+        return self._call_openai("당신은 부동산 전문가입니다.", prompt)
