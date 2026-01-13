@@ -63,24 +63,24 @@ class LLMAdapter(LLMPort):
     def generate_owner_explanation(self, request_data, tone) -> str:
 
         tone = request_data.tone.value
-        my_house = request_data.owner_house
+        owner_house = request_data.owner_house
         finders = request_data.finders
 
         # 1. 지역 매칭 분석
-        region_match = "일치" if my_house.dong_nm in finders.preferred_region else "인접"
+        region_match = "일치" if owner_house.dong_nm in finders.preferred_region else "인접"
 
         # 2. 예산 분석
-        if finders.max_rent >= my_house.monthly_rent:
+        if finders.max_rent >= owner_house.monthly_rent:
             budget_status = "예산 충분 (월세 지불 능력 우수)"
         else:
-            budget_status = f"예산 소폭 부족 (차액 {my_house.monthly_rent - finders.max_rent}원)"
+            budget_status = f"예산 소폭 부족 (차액 {owner_house.monthly_rent - finders.max_rent}원)"
 
         # 3. 프롬프트
         prompt = f"""
                 [내 매물]
-                - 위치: {my_house.address} ({my_house.gu_nm} {my_house.dong_nm})
-                - 가격: 보증금 {my_house.deposit} / 월세 {my_house.monthly_rent}
-                - 타입: {my_house.residence_type} ({my_house.room_type})
+                - 위치: {owner_house.address} ({owner_house.gu_nm} {owner_house.dong_nm})
+                - 가격: 보증금 {owner_house.deposit} / 월세 {owner_house.monthly_rent}
+                - 타입: {owner_house.residence_type} ({owner_house.room_type})
 
                 [세입자 후보]
                 - 희망 지역: {finders.preferred_region}

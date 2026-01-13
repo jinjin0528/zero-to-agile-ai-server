@@ -12,14 +12,15 @@ class StudentRecommendationDistanceObservationRepository(DistanceObservationRepo
     def __init__(self, db_session: Session):
         self.db_session = db_session
 
-    def save_bulk(self, house_id: int, distances: list[DistanceFeatureObservation]):
+    def save_bulk(self, distances: list[DistanceFeatureObservation]):
         if not distances:
             return
 
         # ORM 객체 -> dict 변환
         values = [
             {
-                "house_id": house_id,
+                "house_id": d.house_platform_id,
+                "recommendation_observation_id": d.recommendation_observation_id,
                 "university_id": d.university_id,
                 "학교까지_분": d.학교까지_분,
                 "거리_백분위": d.거리_백분위,
