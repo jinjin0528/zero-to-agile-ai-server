@@ -11,16 +11,6 @@ class LLMAdapter(LLMPort):
         self._client = OpenAI(api_key=self._api_key)
         self._model = model or os.getenv("LLM_MODEL")
 
-    def generate_finder_explanation(self, items, user_message, tone) -> str:
-        if not self._client: return "AI 서비스를 사용할 수 없습니다."
-
-        # 간단한 프롬프트 구성
-        item_desc = "\n".join([f"- {i.title}: {i.deposit}/{i.monthly_rent}, 옵션 {i.options}" for i in items])
-        system_prompt = f"당신은 애방의 전문자취방 구해주는 AI입니다. 말투: {tone}"
-        user_prompt = f"이 매물들이 왜 좋은지 설명해줘:\n{item_desc}\n추가요청: {user_message or '없음'}"
-
-        return self._call_openai(system_prompt, user_prompt)
-
     def generate_finder_explanation(self, request_data, tone) -> str:
         """
         request_data는 UseCase에서 넘겨준 FinderExplanationRequest 객체입니다.
@@ -97,3 +87,20 @@ class LLMAdapter(LLMPort):
                 """
 
         return self._call_openai("당신은 부동산 전문가입니다.", prompt)
+
+    def _call_openai(self, system_role: str, prompt: str) -> str:
+        api_key = os.getenv("OPENAI_API_KEY")
+        client = OpenAI(api_key=api_key)
+
+        model_name = os.getenv("LLM_MODEL", "gpt-4o").strip()
+
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": system_role},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
+
+        return response.choices[0].message.content
