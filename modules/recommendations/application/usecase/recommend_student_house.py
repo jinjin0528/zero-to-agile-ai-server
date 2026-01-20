@@ -17,101 +17,298 @@ from modules.recommendations.application.dto.recommendation_dto import (
 from modules.recommendations.application.port_in.recommend_student_house_port import (
     RecommendStudentHousePort,
 )
+from modules.ai_explanation.application.usecase.explain_finder_usecase import (
+    ExplainFinderUseCase,
+)
+from modules.ai_explanation.application.dto.finder_explanation_dto import (
+    ExplanationInput,
+    ObservationSummaryInput,
+    ObservationPriceInput,
+    ObservationCommuteInput,
+    UserConstraintsInput,
+)
+from infrastructure.db.postgres import SessionLocal
+from infrastructure.db.session_helper import open_session
+from modules.decision_context_signal_builder.application.usecase.build_decision_context_signal_usecase import (
+    BuildDecisionContextSignalUseCase,
+)
+from modules.finder_request.adapter.output.repository.finder_request_repository import (
+    FinderRequestRepository,
+)
+from modules.house_platform.infrastructure.repository.house_platform_repository import (
+    HousePlatformRepository,
+)
+from modules.observations.adapter.output.repository.student_recommendation_distance_observation_repository_impl import (
+    StudentRecommendationDistanceObservationRepository,
+)
+from modules.observations.adapter.output.repository.student_recommendation_feature_observation_repository_impl import (
+    StudentRecommendationFeatureObservationRepository,
+)
+from modules.observations.adapter.output.repository.student_recommendtation_price_observation_repository_impl import (
+    StudentRecommendationPriceObservationRepository,
+)
+from modules.student_house_decision_policy.application.usecase.filter_candidate import (
+    FilterCandidateService,
+)
+from modules.student_house_decision_policy.infrastructure.repository.house_platform_candidate_repository import (
+    HousePlatformCandidateRepository,
+)
+from modules.student_house_decision_policy.infrastructure.repository.student_house_score_repository import (
+    StudentHouseScoreRepository,
+)
+from modules.university.adapter.output.university_repository import (
+    UniversityRepository,
+)
+from modules.student_house_decision_policy.application.dto.candidate_filter_dto import (
+    FilterCandidateCommand,
+)
+from modules.student_house_decision_policy.application.port_in.filter_candidate_port import (
+    FilterCandidatePort,
+)
 from modules.student_house_decision_policy.application.port_out.student_house_score_port import (
     StudentHouseScorePort,
 )
 from modules.student_house_decision_policy.domain.value_object.decision_policy_config import (
     DecisionPolicyConfig,
 )
+from modules.observations.application.port.price_observation_repository_port import (
+    PriceObservationRepositoryPort,
+)
+from modules.observations.application.port.distance_observation_repository_port import (
+    DistanceObservationRepositoryPort,
+)
+from modules.observations.domain.value_objects.distance_observation_features import (
+    DistanceObservationFeatures,
+)
+from modules.university.application.port.university_repository_port import (
+    UniversityRepositoryPort,
+)
 
 
-class RecommendStudentHouseService(RecommendStudentHousePort):
+class RecommendStudentHouseUseCase(RecommendStudentHousePort):
     """학생 매물 추천 결과를 종합한다."""
 
     def __init__(
         self,
-        finder_request_repo: FinderRequestRepositoryPort,
-        house_platform_repo: HousePlatformRepositoryPort,
-        observation_repo,
-        score_repo: StudentHouseScorePort,
+        finder_request_repo: FinderRequestRepositoryPort | None = None,
+        house_platform_repo: HousePlatformRepositoryPort | None = None,
+        observation_repo=None,
+        score_repo: StudentHouseScorePort | None = None,
+        price_observation_repo: PriceObservationRepositoryPort | None = None,
+        distance_observation_repo: DistanceObservationRepositoryPort | None = None,
+        university_repo: UniversityRepositoryPort | None = None,
+        filter_usecase: FilterCandidatePort | None = None,
+        build_context_signal_usecase=None,
+        explain_usecase: ExplainFinderUseCase | None = None,
         policy: DecisionPolicyConfig | None = None,
+        session_factory=SessionLocal,
     ):
+        # 인자가 없으면 execute에서 기본 구현체를 조립한다.
+        # TODO: 의존성 조립을 별도 팩토리로 분리한다.
         self.finder_request_repo = finder_request_repo
         self.house_platform_repo = house_platform_repo
         self.observation_repo = observation_repo
         self.score_repo = score_repo
+        self.price_observation_repo = price_observation_repo
+        self.distance_observation_repo = distance_observation_repo
+        self.university_repo = university_repo
+        self.filter_usecase = filter_usecase
+        self.build_context_signal_usecase = build_context_signal_usecase
+        self.explain_usecase = explain_usecase
         self.policy = policy or DecisionPolicyConfig()
+        self._session_factory = session_factory
 
-    def execute(
-        self, command: RecommendStudentHouseCommand
-    ) -> RecommendStudentHouseResult | None:
+    def execute(self, command: RecommendStudentHouseCommand) -> RecommendStudentHouseResult:
         """추천 결과를 생성한다."""
-        request = self.finder_request_repo.find_by_id(
-            command.finder_request_id
+        session = None
+        generator = None
+        needs_session = (
+            self.finder_request_repo is None
+            or self.price_observation_repo is None
+            or self.distance_observation_repo is None
         )
-        if not request:
-            return None
-        candidates = command.candidate_house_platform_ids
+        if needs_session:
+            session, generator = open_session(self._session_factory)
 
-        policy = self.policy
-        score_map = self._fetch_score_map(
-            candidates,
-            policy,
+        runtime_finder_repo = self.finder_request_repo or FinderRequestRepository(
+            session
         )
-        ranked = [
-            (
-                house_platform_id,
-                score_map.get(house_platform_id),
-                self._resolve_base_score(score_map.get(house_platform_id)),
+        runtime_price_repo = (
+            self.price_observation_repo
+            or StudentRecommendationPriceObservationRepository(session)
+        )
+        runtime_distance_repo = (
+            self.distance_observation_repo
+            or StudentRecommendationDistanceObservationRepository(session)
+        )
+        runtime_observation_repo = (
+            self.observation_repo
+            or StudentRecommendationFeatureObservationRepository(
+                self._session_factory
             )
-            for house_platform_id in candidates
-        ]
-
-        recommended = [item for item in ranked if item[2] >= policy.threshold_base_total]
-        rejected = [item for item in ranked if item[2] < policy.threshold_base_total]
-
-        recommended.sort(key=lambda item: item[2], reverse=True)
-        rejected.sort(key=lambda item: item[2], reverse=True)
-
-        recommended_top = recommended[: policy.top_k]
-        rejected_top = rejected[: policy.top_k]
-
-        # 정상 응답은 SUCCESS + detail None으로 기록한다.
-        # TODO: 실패 수집 로직 활성화 시 FAILED + detail 채움으로 전환한다.
-        status = "SUCCESS"
-        detail = None
-        # TODO: 추천 로직이 안정화되면 실패 상세를 활성화한다.
-        # detail = self._collect_failure_detail(
-        #     candidates=candidates,
-        #     score_map=score_map,
-        # )
-        # if detail:
-        #     status = "FAILED"
-
-        result = RecommendStudentHouseResult(
-            finder_request_id=command.finder_request_id,
-            generated_at=datetime.now(timezone.utc).isoformat(),
-            status=status,
-            detail=detail,
-            query_context=self._build_query_context(request, policy),
-            summary=self._build_summary(
-                total_candidates=len(candidates),
-                recommended_count=len(recommended),
-                rejected_count=len(rejected),
-                top_k=policy.top_k,
-            ),
-            recommended_top_k=self._build_ranked_items(
-                recommended_top,
-                policy,
-                decision_status="RECOMMENDED",
-            ),
-            rejected_top_k=self._build_ranked_items(
-                rejected_top,
-                policy,
-                decision_status="REJECTED",
-            ),
         )
-        return result
+        runtime_score_repo = self.score_repo or StudentHouseScoreRepository(
+            self._session_factory
+        )
+        runtime_house_platform_repo = (
+            self.house_platform_repo
+            or HousePlatformRepository(self._session_factory)
+        )
+        runtime_university_repo = (
+            self.university_repo
+            or UniversityRepository(self._session_factory)
+        )
+        runtime_filter_usecase = self.filter_usecase or FilterCandidateService(
+            finder_request_repo=runtime_finder_repo,
+            house_platform_repo=HousePlatformCandidateRepository(
+                self._session_factory
+            ),
+            price_observation_repo=runtime_price_repo,
+            distance_observation_repo=runtime_distance_repo,
+            university_repo=runtime_university_repo,
+        )
+        runtime_explain_usecase = (
+            self.explain_usecase or ExplainFinderUseCase()
+        )
+        runtime_context_signal_usecase = (
+            self.build_context_signal_usecase
+            or BuildDecisionContextSignalUseCase(
+                observation_repo=runtime_observation_repo
+            )
+        )
+
+        # finder_request는 상위 흐름에서 존재를 보장한다.
+        request = runtime_finder_repo.find_by_id(command.finder_request_id)
+
+        previous = (
+            self.finder_request_repo,
+            self.house_platform_repo,
+            self.observation_repo,
+            self.score_repo,
+            self.price_observation_repo,
+            self.distance_observation_repo,
+            self.university_repo,
+            self.filter_usecase,
+            self.build_context_signal_usecase,
+            self.explain_usecase,
+        )
+        self.finder_request_repo = runtime_finder_repo
+        self.house_platform_repo = runtime_house_platform_repo
+        self.observation_repo = runtime_observation_repo
+        self.score_repo = runtime_score_repo
+        self.price_observation_repo = runtime_price_repo
+        self.distance_observation_repo = runtime_distance_repo
+        self.university_repo = runtime_university_repo
+        self.filter_usecase = runtime_filter_usecase
+        self.build_context_signal_usecase = runtime_context_signal_usecase
+        self.explain_usecase = runtime_explain_usecase
+
+        try:
+            candidates = command.candidate_house_platform_ids
+            if candidates is None:
+                filter_result = self.filter_usecase.execute(
+                    FilterCandidateCommand(
+                        finder_request_id=command.finder_request_id
+                    )
+                )
+                candidates = [
+                    candidate.house_platform_id
+                    for candidate in filter_result.candidates
+                ]
+
+            if self.build_context_signal_usecase and candidates:
+                self.build_context_signal_usecase.execute_with_candidates(
+                    candidates
+                )
+
+            policy = self.policy
+            score_map = self._fetch_score_map(
+                candidates,
+                policy,
+            )
+            ranked = [
+                (
+                    house_platform_id,
+                    score_map.get(house_platform_id),
+                    self._resolve_base_score(
+                        score_map.get(house_platform_id)
+                    ),
+                )
+                for house_platform_id in candidates
+            ]
+
+            recommended = [
+                item
+                for item in ranked
+                if item[2] >= policy.threshold_base_total
+            ]
+            rejected = [
+                item
+                for item in ranked
+                if item[2] < policy.threshold_base_total
+            ]
+
+            recommended.sort(key=lambda item: item[2], reverse=True)
+            rejected.sort(key=lambda item: item[2], reverse=True)
+
+            recommended_top = recommended[: policy.top_k]
+            rejected_top = rejected[: policy.top_k]
+
+            # 정상 응답은 SUCCESS + detail None으로 기록한다.
+            # TODO: 실패 수집 로직 활성화 시 FAILED + detail 채움으로 전환한다.
+            status = "SUCCESS"
+            detail = None
+            # TODO: 추천 로직이 안정화되면 실패 상세를 활성화한다.
+            # detail = self._collect_failure_detail(
+            #     candidates=candidates,
+            #     score_map=score_map,
+            # )
+            # if detail:
+            #     status = "FAILED"
+
+            result = RecommendStudentHouseResult(
+                finder_request_id=command.finder_request_id,
+                generated_at=datetime.now(timezone.utc).isoformat(),
+                status=status,
+                detail=detail,
+                query_context=self._build_query_context(request, policy),
+                summary=self._build_summary(
+                    total_candidates=len(candidates),
+                    recommended_count=len(recommended),
+                    rejected_count=len(rejected),
+                    top_k=policy.top_k,
+                ),
+                recommended_top_k=self._build_ranked_items(
+                    recommended_top,
+                    request,
+                    policy,
+                    decision_status="RECOMMENDED",
+                ),
+                rejected_top_k=self._build_ranked_items(
+                    rejected_top,
+                    request,
+                    policy,
+                    decision_status="REJECTED",
+                ),
+            )
+            return result
+        finally:
+            (
+                self.finder_request_repo,
+                self.house_platform_repo,
+                self.observation_repo,
+                self.score_repo,
+                self.price_observation_repo,
+                self.distance_observation_repo,
+                self.university_repo,
+                self.filter_usecase,
+                self.build_context_signal_usecase,
+                self.explain_usecase,
+            ) = previous
+            if generator:
+                generator.close()
+            elif session is not None:
+                session.close()
 
     def _fetch_score_map(
         self,
@@ -160,13 +357,30 @@ class RecommendStudentHouseService(RecommendStudentHousePort):
         snapshot_mismatches: list[int] = []
         for candidate_id in candidates:
             raw = self._build_raw(candidate_id)
-            observation = self._fetch_observation(candidate_id)
-            if not observation:
+            feature_observation = self._fetch_feature_observation(
+                candidate_id
+            )
+            price_observation = self._fetch_price_observation(
+                candidate_id
+            )
+            distance_observation = self._select_distance_observation(
+                self._fetch_distance_observations(candidate_id),
+                None,
+            )
+            if (
+                not feature_observation
+                or not price_observation
+                or not distance_observation
+            ):
                 missing_observations.append(candidate_id)
                 continue
             snapshot_id = raw.get("snapshot_id")
-            if snapshot_id and observation.snapshot_id != snapshot_id:
-                snapshot_mismatches.append(candidate_id)
+            # TODO: snapshot_id 불일치 처리 정책을 확정한 뒤 활성화한다.
+            # if (
+            #     snapshot_id
+            #     and feature_observation.snapshot_id != snapshot_id
+            # ):
+            #     snapshot_mismatches.append(candidate_id)
 
         if missing_observations:
             failures.append(
@@ -211,6 +425,7 @@ class RecommendStudentHouseService(RecommendStudentHousePort):
     def _build_ranked_items(
         self,
         ranked_items: list[tuple[Any, Any, float]],
+        request,
         policy: DecisionPolicyConfig,
         decision_status: str,
     ) -> list[dict[str, Any]]:
@@ -219,15 +434,30 @@ class RecommendStudentHouseService(RecommendStudentHousePort):
             ranked_items, start=1
         ):
             raw = self._build_raw(house_platform_id)
-            observation = self._fetch_observation(
+            feature_observation = self._fetch_feature_observation(
                 house_platform_id
             )
+            price_observation = self._fetch_price_observation(
+                house_platform_id
+            )
+            distance_observations = self._fetch_distance_observations(
+                house_platform_id
+            )
+            distance_observation = self._select_distance_observation(
+                distance_observations, request
+            )
             observation_summary = self._build_observation_summary(
-                observation, raw.get("snapshot_id")
+                feature_observation,
+                price_observation,
+                distance_observation,
+                raw.get("snapshot_id"),
+            )
+            explanation = self._build_ai_explanation(
+                request, observation_summary
             )
             score_breakdown = self._build_score_breakdown(score, policy)
             version_mismatch = self._has_version_mismatch(
-                score, observation
+                score, feature_observation
             )
             if version_mismatch:
                 # TODO: 관측 버전/점수 버전 불일치 처리 정책을 확정한다.
@@ -245,28 +475,46 @@ class RecommendStudentHouseService(RecommendStudentHousePort):
             }
 
             if decision_status == "RECOMMENDED":
+                recommended_reasons = (
+                    explanation.get("recommended_reasons", [])
+                    if explanation
+                    else []
+                )
                 item["ai_explanation"] = {
-                    "reasons_top3": [],
-                    "warnings": self._build_warnings(version_mismatch),
+                    "recommended_reasons": recommended_reasons,
+                    "warnings": self._build_warnings(
+                        version_mismatch,
+                        has_explanation=explanation is not None,
+                    ),
                 }
-                # TODO: ai_explaination 모듈 연동 시 실제 설명을 채운다.
+                # TODO: 추천 설명 정책을 정교화한다.
             else:
-                item["reject_reasons"] = [
-                    {
-                        "code": "SCORE_BELOW_THRESHOLD",
-                        "text": "점수 기준 미달로 제외되었습니다.",
-                        "evidence": {
-                            "base_total_score": score.base_total_score
-                            if score
-                            else 0.0,
-                            "threshold": policy.threshold_base_total,
-                        },
-                    }
-                ]
-                item["explanation"] = {
-                    "reasons_top3": [],
+                reject_reasons = (
+                    explanation.get("reject_reasons", [])
+                    if explanation
+                    else []
+                )
+                used_fallback_reject = False
+                if not reject_reasons:
+                    reject_reasons = [
+                        {
+                            "code": "SCORE_BELOW_THRESHOLD",
+                            "text": "점수 기준 미달로 제외되었습니다.",
+                            "evidence": {
+                                "base_total_score": score.base_total_score
+                                if score
+                                else 0.0,
+                                "threshold": policy.threshold_base_total,
+                            },
+                        }
+                    ]
+                    used_fallback_reject = True
+                item["reject_reasons"] = reject_reasons
+                item["ai_explanation"] = {
+                    "reject_reasons": reject_reasons,
                     "warnings": self._build_reject_warnings(
-                        version_mismatch
+                        version_mismatch,
+                        used_fallback_reject,
                     ),
                 }
             results.append(item)
@@ -281,56 +529,173 @@ class RecommendStudentHouseService(RecommendStudentHousePort):
         raw.pop("crawled_at", None)
         return raw
 
-    def _fetch_observation(self, house_platform_id: int):
-        """관측 저장소의 메서드 차이를 내부에서 흡수한다."""
+    def _fetch_feature_observation(self, house_platform_id: int):
+        """risk/option 관측 저장소를 조회한다."""
         if not hasattr(self.observation_repo, "find_latest_by_house_id"):
             raise AttributeError("관측 저장소가 없습니다.")
         return self.observation_repo.find_latest_by_house_id(
             house_platform_id
         )
 
+    def _fetch_price_observation(self, house_platform_id: int):
+        """가격 관측 저장소를 조회한다."""
+        if not self.price_observation_repo:
+            raise AttributeError("가격 관측 저장소가 없습니다.")
+        return self.price_observation_repo.get_by_house_platform_id(
+            house_platform_id
+        )
+
+    def _fetch_distance_observations(self, house_platform_id: int):
+        """거리 관측 저장소를 조회한다."""
+        if not self.distance_observation_repo:
+            raise AttributeError("거리 관측 저장소가 없습니다.")
+        return self.distance_observation_repo.get_bulk_by_house_platform_id(
+            house_platform_id
+        )
+
+    def _select_distance_observation(self, distances: list, request):
+        """대학교 기준으로 거리 관측치를 선택한다."""
+        if not distances:
+            return None
+
+        matched = self._find_distance_by_university(distances, request)
+        if matched:
+            return DistanceObservationFeatures(
+                학교까지_분=matched.학교까지_분,
+                거리_백분위=matched.거리_백분위,
+                거리_버킷=matched.거리_버킷,
+                거리_비선형_점수=matched.거리_비선형_점수,
+            )
+
+        return self._average_latest_distance(distances)
+
+    def _find_distance_by_university(self, distances: list, request):
+        if not request or not request.university_name:
+            return None
+        if not self.university_repo:
+            return None
+
+        target_ids = self._resolve_university_ids(
+            request.university_name
+        )
+        if not target_ids:
+            return None
+
+        matched = [
+            distance
+            for distance in distances
+            if distance.university_id in target_ids
+        ]
+        if not matched:
+            return None
+        # 동일 학교가 여러 개면 가장 가까운 거리값을 사용한다.
+        return min(matched, key=lambda item: item.학교까지_분)
+
+    def _resolve_university_ids(self, university_name: str) -> list[int]:
+        normalized = (university_name or "").strip()
+        if not normalized:
+            return []
+        locations = self.university_repo.get_university_locations()
+        return [
+            location.university_location_id
+            for location in locations
+            if (location.university_name or "").strip() == normalized
+        ]
+
+    @staticmethod
+    def _average_latest_distance(distances: list):
+        """최신 관측치의 평균값을 계산한다."""
+        latest_time = None
+        for distance in distances:
+            if not distance.calculated_at:
+                continue
+            if latest_time is None or distance.calculated_at > latest_time:
+                latest_time = distance.calculated_at
+
+        latest_distances = [
+            distance
+            for distance in distances
+            if not latest_time
+            or distance.calculated_at == latest_time
+        ]
+        if not latest_distances:
+            return None
+
+        avg_minutes = sum(
+            distance.학교까지_분 for distance in latest_distances
+        ) / len(latest_distances)
+        avg_percentile = sum(
+            distance.거리_백분위 for distance in latest_distances
+        ) / len(latest_distances)
+        avg_score = sum(
+            distance.거리_비선형_점수 for distance in latest_distances
+        ) / len(latest_distances)
+
+        return DistanceObservationFeatures(
+            학교까지_분=avg_minutes,
+            거리_백분위=avg_percentile,
+            거리_버킷=RecommendStudentHouseUseCase._calc_distance_bucket(
+                avg_minutes
+            ),
+            거리_비선형_점수=avg_score,
+        )
+
+    @staticmethod
+    def _calc_distance_bucket(minutes: float) -> str:
+        if minutes < 10:
+            return "0_10분"
+        if minutes < 20:
+            return "10_20분"
+        if minutes < 30:
+            return "20_30분"
+        if minutes < 40:
+            return "30_40분"
+        return "40분_이상"
+
     @staticmethod
     def _build_observation_summary(
-        observation,
+        feature_observation,
+        price_observation,
+        distance_observation,
         snapshot_id: str | None,
     ) -> dict[str, Any] | None:
-        if not observation:
+        if not feature_observation or not price_observation or not distance_observation:
             return None
-        if snapshot_id and observation.snapshot_id != snapshot_id:
-            # TODO: snapshot_id 불일치 처리 정책을 확정한다.
-            return None
+        # TODO: snapshot_id 불일치 처리 정책을 확정한 뒤 활성화한다.
+        # if snapshot_id and feature_observation.snapshot_id != snapshot_id:
+        #     return None
         return {
-            "snapshot_id": observation.snapshot_id,
-            "observation_version": observation.메타데이터.관측치_버전,
-            "source_data_version": observation.메타데이터.원본_데이터_버전,
-            "calculated_at": observation.calculated_at.isoformat()
-            if observation.calculated_at
+            "snapshot_id": feature_observation.snapshot_id,
+            "observation_version": feature_observation.메타데이터.관측치_버전,
+            "source_data_version": feature_observation.메타데이터.원본_데이터_버전,
+            "calculated_at": feature_observation.calculated_at.isoformat()
+            if feature_observation.calculated_at
             else None,
             "price": {
-                "monthly_cost_est": observation.가격_관측치.월_비용_추정,
-                "price_percentile": observation.가격_관측치.가격_백분위,
-                "price_zscore": observation.가격_관측치.가격_z점수,
-                "price_burden_nonlinear": observation.가격_관측치.가격_부담_비선형,
-                "estimated_move_in_cost": observation.가격_관측치.예상_입주비용,
+                "monthly_cost_est": price_observation.월_비용_추정,
+                "price_percentile": price_observation.가격_백분위,
+                "price_zscore": price_observation.가격_z점수,
+                "price_burden_nonlinear": price_observation.가격_부담_비선형,
+                "estimated_move_in_cost": price_observation.예상_입주비용,
             },
             "commute": {
-                "distance_to_school_min": observation.거리_관측치.학교까지_분,
-                "distance_bucket": observation.거리_관측치.거리_버킷,
-                "distance_percentile": observation.거리_관측치.거리_백분위,
-                "distance_nonlinear_score": observation.거리_관측치.거리_비선형_점수,
+                "distance_to_school_min": distance_observation.학교까지_분,
+                "distance_bucket": distance_observation.거리_버킷,
+                "distance_percentile": distance_observation.거리_백분위,
+                "distance_nonlinear_score": distance_observation.거리_비선형_점수,
                 # TODO: 거리 상세 정보는 observation 모듈에서 제공되면 추가한다.
                 "distance_details_top3": [],
             },
             "risk": {
-                "risk_event_count": observation.위험_관측치.위험_사건_개수,
-                "risk_event_types": observation.위험_관측치.위험_사건_유형,
-                "risk_probability_est": observation.위험_관측치.위험_확률_추정,
-                "risk_severity_score": observation.위험_관측치.위험_심각도_점수,
-                "risk_nonlinear_penalty": observation.위험_관측치.위험_비선형_패널티,
+                "risk_event_count": feature_observation.위험_관측치.위험_사건_개수,
+                "risk_event_types": feature_observation.위험_관측치.위험_사건_유형,
+                "risk_probability_est": feature_observation.위험_관측치.위험_확률_추정,
+                "risk_severity_score": feature_observation.위험_관측치.위험_심각도_점수,
+                "risk_nonlinear_penalty": feature_observation.위험_관측치.위험_비선형_패널티,
             },
             "options": {
-                "essential_option_coverage": observation.편의_관측치.필수_옵션_커버리지,
-                "convenience_score": observation.편의_관측치.편의_점수,
+                "essential_option_coverage": feature_observation.편의_관측치.필수_옵션_커버리지,
+                "convenience_score": feature_observation.편의_관측치.편의_점수,
             },
         }
 
@@ -366,15 +731,23 @@ class RecommendStudentHouseService(RecommendStudentHousePort):
         )
 
     @staticmethod
-    def _build_warnings(version_mismatch: bool) -> list[str]:
-        warnings = ["추천 설명은 추후 생성됩니다."]
+    def _build_warnings(
+        version_mismatch: bool, has_explanation: bool
+    ) -> list[str]:
+        warnings = []
+        if not has_explanation:
+            warnings.append("추천 설명은 추후 생성됩니다.")
         if version_mismatch:
             warnings.append("관측 버전과 점수 버전이 일치하지 않습니다.")
         return warnings
 
     @staticmethod
-    def _build_reject_warnings(version_mismatch: bool) -> list[str]:
-        warnings = ["점수 기준 미달로 후보에서 제외되었습니다."]
+    def _build_reject_warnings(
+        version_mismatch: bool, used_fallback_reject: bool
+    ) -> list[str]:
+        warnings = []
+        if used_fallback_reject:
+            warnings.append("점수 기준 미달로 후보에서 제외되었습니다.")
         if version_mismatch:
             warnings.append("관측 버전과 점수 버전이 일치하지 않습니다.")
         return warnings
@@ -406,4 +779,52 @@ class RecommendStudentHouseService(RecommendStudentHousePort):
                 "fridge_yn": request.fridge_yn,
                 "max_building_age": request.max_building_age,
             },
+        }
+
+    def _build_ai_explanation(self, request, observation_summary):
+        """AI 설명을 생성한다."""
+        if not request or not observation_summary:
+            return None
+        if not self.explain_usecase:
+            return None
+
+        constraints = UserConstraintsInput(
+            budget_deposit_max=request.max_deposit,
+            budget_monthly_max=request.max_rent,
+            max_commute_min=None,
+        )
+        summary_input = ObservationSummaryInput(
+            price=ObservationPriceInput(
+                **observation_summary["price"]
+            ),
+            commute=ObservationCommuteInput(
+                **observation_summary["commute"]
+            ),
+        )
+        explanation_input = ExplanationInput(
+            user_constraints=constraints,
+            observation_summary=summary_input,
+        )
+        result = self.explain_usecase.execute(explanation_input)
+        return {
+            "recommended_reasons": [
+                self._to_reason_dict(item)
+                for item in result.recommended_reasons
+            ],
+            "reject_reasons": [
+                self._to_reason_dict(item)
+                for item in result.reject_reasons
+            ],
+        }
+
+    @staticmethod
+    def _to_reason_dict(reason) -> dict[str, Any]:
+        if hasattr(reason, "model_dump"):
+            return reason.model_dump()
+        if hasattr(reason, "dict"):
+            return reason.dict()
+        return {
+            "code": getattr(reason, "code", None),
+            "text": getattr(reason, "text", ""),
+            "evidence": getattr(reason, "evidence", {}),
         }
