@@ -98,5 +98,5 @@ FastAPI 기반으로 **Hexagonal Architecture**를 적용하여
 ---
 
 ## 📁 DB
-<img width="1228" height="770" alt="db 1" src="https://github.com/user-attachments/assets/f1d2e9b8-0a52-495d-8dbc-628c580256cb" />
-<img width="1192" height="702" alt="db 2" src="https://github.com/user-attachments/assets/76286133-7125-451e-88b6-e7f8cbd15152" />
+<img width="1228" height="408" alt="db 1" src="https://github.com/user-attachments/assets/a442797a-8cb2-4459-b1a7-e5252b2fd5b8" />
+<img width="1192" height="668" alt="db 2" src="https://github.com/user-attachments/assets/276d6de5-c1d0-456d-9b4a-0e0d1714ec3a" />
