@@ -93,3 +93,10 @@ FastAPI 기반으로 **Hexagonal Architecture**를 적용하여
     ├── __init__.py               # test 패키지 선언
     └── dev_lsy                   # 개인 / 실험용 테스트 영역
         └── __init__.py
+```
+
+---
+
+## 📁 DB
+<img width="1228" height="770" alt="db 1" src="https://github.com/user-attachments/assets/f1d2e9b8-0a52-495d-8dbc-628c580256cb" />
+<img width="1192" height="702" alt="db 2" src="https://github.com/user-attachments/assets/76286133-7125-451e-88b6-e7f8cbd15152" />
