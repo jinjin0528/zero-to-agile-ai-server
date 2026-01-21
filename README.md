@@ -1,4 +1,4 @@
-# zero-to-agile-ai-server
+# AgileBang
 
 Zero to Agile AI Server 프로젝트입니다.  
 FastAPI 기반으로 **Hexagonal Architecture**를 적용하여  
